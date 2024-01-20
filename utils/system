@@ -1,0 +1,112 @@
+.apply(function() {
+    if (.tmp == null) 
+	.tmp = .Map();
+
+    if (.tmp.system == null) 
+	.tmp.system = .Map();
+    
+    this = .tmp.system;
+
+    sleep = function (t) {
+	var i;
+	
+	for (i = 0; i < t; i = i + 1) 
+	    .scheduler.yield(); 
+    };
+
+    
+
+    /*
+     * schedules extraction to occur in the next tick
+     */
+    trueExtract = function(obj_or_mob) {
+	.scheduler.Thread(
+		function(objmob) {
+			if (objmob.online && !objmob.dead)
+			    objmob.extract(true);
+			return;
+		}, obj_or_mob
+	).start(); 
+    };
+    
+    /*
+     * returns: null if num is not numerical
+     *          numerical representation of num - otherwise
+     */
+    toNumber = function(num) {
+	try {
+	    var n;
+	    n=0+num;
+	    return n;
+	} catch(e) {
+	    return null;
+	}
+    };
+    
+    /*
+     * transforms list (a1, a2, ... an) into the string "a1, a2, ... , an"
+     */
+    concatComma = function(msgs) {
+	var m, str;
+
+	m = msgs.clone();
+	str = "";
+
+	for (;m.size() != 0;) {
+	    str = str + m.front();
+	    m.pop_front();
+
+	    if (m.size() != 0) str = str + ", ";
+	}
+	return str;
+    };
+    
+    /*
+     * transforms list (a1, as2, ... an) into the string "a1, a2, ... и an"
+     */
+    concatCommaAnd = function(msgs) {
+	var m, str;
+	
+	m = msgs.clone();
+	str = "";
+
+	for (;m.size() != 0;) {
+	    str = str + m.front();
+	    m.pop_front();
+
+	    if (m.size() == 1)     str = str + " и ";
+	    else if (m.size() > 1) str = str + ", ";
+	}
+	return str;
+    };
+    
+    // Extracts a single russian (1) or english (0) keyword out of a string
+    // Used for visualizing interactions with mobs or objects: "order X stand"
+    getOneKeyword = function(string, russian) {
+	var list; list = string.split(" ");
+	if (list.size() > 0) {
+	    if (russian) {
+		for (l in list)
+		    if (l.isRussian()) return l;
+	    }
+	    else return list.front();
+	}
+	else return "";
+    };
+    
+    // Returns formatted obj name or "something" in the correct case
+    // Remember to capitalize the output manually if needed
+    objVisMsg = function(ch, obj, case) {
+	if (!ch.can_see_obj(obj)) return smthCases[case];
+	else return .fmt("%O" + case, obj);
+    };
+    
+    smthCases = .Array();
+    smthCases[1] = "нечто";
+    smthCases[2] = "чего-то";
+    smthCases[3] = "чему-то";
+    smthCases[4] = "что-то";
+    smthCases[5] = "чем-то";
+    smthCases[6] = "чём-то";
+})
+

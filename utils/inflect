@@ -1,0 +1,82 @@
+.apply(function() {
+/*
+ * Translated to Fenia from the Perl package Lingua::RU::Inflect.
+ * https://github.com/shoorick/lingua-ru-inflect/blob/master/lib/Lingua/RU/Inflect.pm
+ */
+    this = .tmp.system;
+
+    /*
+     * Returns Russian inflection of a name.
+     * Parameters: 
+     * name in cyrillic 
+     * gender (.tables.sex_table.male or female) 
+     * grammatical case (1..6) 
+     */
+    inflect_name = function(name, gender, gcase) {
+	var root0, root00, i;
+	var end_1,end_2,end_3,end_4,end_5,end_6,end_7,end_8;
+
+	// Ignore wrong case numbers.
+	if (gcase < 1 || gcase > 6)
+	    return name;
+	// Ignore empty, short or latin strings.
+	if (name.size() <= 2 || !name.isRussian())
+	    return name;
+	// Nothing to do for nominative case.
+	if (gcase == 1) 
+	    return name;
+
+	// Names that ends with vowels "o", "yo", "u", "yu", "y", "i", "e", "ye"
+	// and pairs of vowels except "yeya", "iya" can not be inflected.
+	if (name.match("[еёиоуыэю]$") 
+	    || name.match("[аеёиоуыэюя]а$")
+	    || name.match("[аёоуыэюя]я$"))
+	    return name;
+
+	// Feminine names ending with a consonant are not inflected.
+	if (gender == .tables.sex_table.female
+	    && name.match("[бвгджзклмнйпрстфхцчшщ]$"))
+	    return name;
+
+	// Remember this name without suffix(es).
+	root0 = name.substr(0, name.size() - 1);
+	root00 = name.substr(0, name.size() - 2);
+
+	// Use i to index array of suffixes, starting from genitive case (0).
+	i = gcase - 2;
+	// More Russian dark magic follows.
+	end_1=.List().add("ии", "ии", "ию", "ией", "ии");
+	end_2=.List().add("и", "е", "у", "ой", "е");
+	end_3=.List().add("ы", "е", "у", "ой", "е");
+	end_4=.List().add("мени", "мени", "мя", "менем", "мени");
+	end_5=.List().add("и", "е", "ю", "ей", "е");
+	end_6=.List().add("я", "ю", "я", "ем", "е");
+	end_7=.List().add("и", "и", "ь", "ью", "и");
+	end_8=.List().add("а", "у", "а", "ом", "е");
+	
+	// Match various endings in nominative case with corresponding table of
+	// inflected endings.
+	if (name.match("ия$"))
+	    return root00 + end_1.at(i); 
+	if (name.match("[гжйкхчшщ]а$"))
+	    return root0 + end_2.at(i); 
+	if (name.match("а$"))
+	    return root0 + end_3.at(i); 
+	if (name.match("мя$"))
+	    return root00 + end_4.at(i); 
+	if (name.match("я$"))
+	    return root0 + end_5.at(i); 
+	if (name.match("й$"))
+	    return root0 + end_6.at(i); 
+	// Same endings, different gender.
+	if (name.match("ь$")) {
+	    if (gender == .tables.sex_table.male)
+		return root0 + end_6.at(i);
+	    else
+		return root0 + end_7.at(i);
+	}
+	// Rest of the names that end with a consonant.
+	return name + end_8.at(i);
+    };
+})
+
