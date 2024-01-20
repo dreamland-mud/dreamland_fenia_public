@@ -1,0 +1,39 @@
+.get_obj_index(16034).onFight = function(obj, ch) {
+    // Вызывается каждый боевой раунд (четыре секунды).
+
+    // Сработает только на предмет в экипировке, но не в волосах, хвосте и т.п.
+    if (!obj.worn) return;
+    // На всякий случай проверим, есть ли у игрока ступни, чтобы ими топать
+    if (!(ch.parts & .tables.part_flags.feet)) return;
+	
+    var vict; vict = ch.fighting;
+    // Противник уже мертв или что-то не так
+    if (!.tmp.mob.valid(vict)) return; 
+    // Противник уже ослеплен
+    if (.tmp.mob.isBlind(vict)) return;
+    
+    // Общая функция проверки условий для ослепления пылью: проверит,
+    // есть ли в комнате пыль, летает ли или едет верхом игрок и т.д.
+    // Если есть ошибка, функция вернет сообщение. Если его нет -- все ок.
+    if (.SkillCommand("dirt kicking").checkDirt(ch, vict) != "")
+	return;
+    
+    if (.chance(10)) { // Стандартный шанс срабатывания лимитов -- 10%
+	ch.act("{1{yТы резко топаешь ногой и из твоих{2 %O2 {1{yвзвивается огромное облако пыли, ослепляя %C4!{2", obj, vict);
+	ch.rvecho(vict, "{C%1$^C1 {yрезко топа%1$nет|ют ногой и из %1$P2 {C%2$O2 {yвзвивается огромное облако пыли, ослепляя %3$C4!{x", ch, obj, vict);
+	vict.act("{C%1$^C1 {yрезко топа%1$nет|ют ногой и из %1$P2 {C%2$O2 {yвзвивается огромное облако пыли, ослепляя тебя!{x", ch, obj);
+
+	var af; af = .Affect();
+	af.type      = "dirt kicking";
+	af.level     = ch.getModifyLevel();
+	af.duration  = 0;
+	af.location  = .tables.apply_flags.hitroll;
+	// Базовое "физическое" ослепление -- эффект не зависит от уровня игрока
+	af.modifier  = -4;
+	af.bitvector("affect_flags", "blind");	
+	vict.affectAdd(af);
+
+	vict.act("Ты ничего не видишь!");
+    }
+
+}
