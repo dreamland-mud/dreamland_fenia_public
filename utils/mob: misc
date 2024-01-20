@@ -1,0 +1,443 @@
+// Various helpers to determine character features or parameters
+.apply(function() {
+    if (.tmp.mob == null) .tmp.mob = .Map();
+    
+    /////////////////////////////////////////////////////////////
+    ////////////////////// BASIC HELPERS ////////////////////////
+    /////////////////////////////////////////////////////////////
+    
+    // Basic helper to see if ch "exists"
+    .tmp.mob.valid = function(ch) {
+	return (ch != null && !ch.dead && (ch.is_npc() || ch.online));
+    };
+
+    // Is ch awake and capable to perceive reality?
+    .tmp.mob.awake = function(ch) {
+	return (.tmp.mob.valid(ch) &&
+		ch.position >= .tables.position_table.rest);
+    };
+    
+    // Is ch awake and can perform auto-actions, 
+    // e.g. defensive skills (anything that doesn't require explicit command)
+    .tmp.mob.canMove = function(ch) {
+	return (.tmp.mob.awake(ch) &&
+		!(ch.affected_by & .tables.affect_flags.stun));
+    };
+    
+    // Can a character can perform explicit actions
+    .tmp.mob.isActive = function(ch) {
+	return (.tmp.mob.canMove(ch) &&
+		!(ch.detection & .tables.detect_flags.fear) &&
+		ch.wait <= 0);
+    };
+
+    // NPC can perform ambient actions (e.g. randomly emote)
+    .tmp.mob.canActAmbient = function(mob) {	
+	return (.tmp.mob.isActive(mob) && mob.is_npc() && 
+		mob.fighting == null);
+    };
+    
+    // TO-DO (RUFFINA): replace this with native support for boat_get_types
+    // P.S. And better yet improve the utter hell with "boat types"
+    .tmp.mob.boatType = function(ch) {
+	var boat; boat = "";
+	// Available boat types are added as complementary bits, but in reality
+	// char only uses ONE "boat type" at a time. Let's assume this:
+	// (1) fly --> (2) swim --> (3) boat
+	if (.tmp.mob.valid(ch)) {
+	    if (ch.flying)
+		boat = "fly";
+	    else if (ch.affected_by & .tables.affect_flags.swim)
+		boat = "swim";
+	    else if (ch.boat != null)
+		boat = "boat";
+	}
+	return boat;
+    };
+    
+    /////////////////////////////////////////////////////////////
+    ////////////////////// BODY PARTS / FORMS ///////////////////
+    /////////////////////////////////////////////////////////////
+	
+    // Shortcut helper to determine whether a character is blind
+    // TO-DO (RUFFINA): Replace this with ch.blind implementation
+    .tmp.mob.isBlind = function(ch) {
+	return (ch.affected_by & .tables.affect_flags.blind);
+    };
+
+    // Can a ch greet vict: do the see them come and react?
+    .tmp.mob.canGreet = function(ch, vict) {
+	return (.tmp.mob.valid(vict) && .tmp.mob.awake(ch) &&
+		!.tmp.mob.isBlind(ch) && ch.can_see_mob(vict) &&
+		!(ch.detection & .tables.detect_flags.fear));
+    };	
+    
+    // Determine whether a creature is capable of producing any sounds
+    .tmp.mob.canMakeSound = function(ch) {
+	return (!ch.is_npc() || 
+		    (ch.form & .tables.form_flags.spider ||
+		     ch.form & .tables.form_flags.blob ||
+		     ch.form & .tables.form_flags.fish ||
+		     ch.form & .tables.form_flags.worm ||
+		     ch.form & .tables.form_flags.crustacean ||
+		     ch.form & .tables.form_flags.insect));	    
+    };
+
+    // Additional checks whether ch was deactivated or silenced
+    .tmp.mob.isSilent = function(ch) {
+	return (!.tmp.mob.isActive(ch) ||
+		!.tmp.mob.canMakeSound(ch) ||
+		ch.isAffected("garble"));
+    };
+    
+    // Determine whether a mob is capable of speaking:
+    // non-silent PCs, sentients or magical creatures, not under water
+    .tmp.mob.canSpeak = function(ch) {
+	return (.tmp.mob.valid(ch) && ch.in_room != null &&
+		!.tmp.mob.isSilent(ch) &&
+		ch.in_room.sector_type != .tables.sector_table.underwater &&
+		    (!ch.is_npc() || 
+		     ch.form & .tables.form_flags.sentient ||
+		     ch.form & .tables.form_flags.magical));
+    };
+    
+    // TO-DO: add isDeaf helper -- is PC deaf flag, deafen, no ears, sleeping etc.
+    
+    .tmp.mob.isUndead = function(ch) {
+	return ( (ch.is_npc() && (ch.act  & .tables.act_flags.undead || 
+				  ch.form & .tables.form_flags.undead)) ||
+		 (!ch.is_npc() && (ch.act & .tables.plr_flags.vampire)) );
+    };
+    
+    .tmp.mob.isObject = function(ch) {
+	if (ch.is_npc()) { 
+	    if (ch.detection & .tables.detect_flags.form_tree ||   
+		ch.detection & .tables.detect_flags.form_grass ||
+		ch.race.name == "modron" ||	
+		ch.race.name == "golem" ||
+		ch.form & .tables.form_flags.construct)
+		return true;
+	}
+	return false;
+    };
+    
+    .tmp.mob.isEthereal = function(ch) {
+	if (ch.is_npc()) { 
+	    if (ch.form & .tables.form_flags.mist ||   
+		ch.form & .tables.form_flags.intangible)
+		return true;
+	}
+	return false;
+    };	
+    
+    // charm person: anyone except undeads/objects/nonadoptable
+    // attract: charm person, only sentinels, only opposite sex
+    // dominate: NPCs, except undeads/objects/ethereal/nonadoptable
+    // control undead: only undeads/objects (including vampire PCs)
+    // befriend: non-sentinels, except undeads/objects/nonadoptable
+    .tmp.mob.isBloodless = function(ch) {
+	return (ch == null ||
+		.tmp.mob.isUndead(ch) ||
+		.tmp.mob.isObject(ch) ||
+		.tmp.mob.isEthereal(ch));
+    };
+    
+    // Check if a mob has legs and can be thrown to the ground.
+    .tmp.mob.hasLegs = function(ch) {
+	return .tmp.mob.hasPart(ch, "legs");
+    };
+    
+    // Check if mob's arms should be called "paws": true for all non-sentient and dragons.
+    .tmp.mob.hasPaws = function(ch) {
+	return (!.tmp.mob.isObject(ch)
+		&& (!(ch.form & .tables.form_flags.sentient) || 
+		     (ch.form & .tables.form_flags.dragon)));
+    };
+
+    // Check if ch has active hands 
+    .tmp.mob.hasHands = function(ch) {
+	return (.tmp.mob.valid(ch) && .tmp.mob.hasPart(ch, "hands") && 
+		ch.wearloc.split(' ').has("hands") &&
+		(ch.wearloc.split(' ').has("wrist_l") ||
+		 ch.wearloc.split(' ').has("wrist_r")));
+    };
+    
+    // Check if ch has free hand to grab/catch
+    .tmp.mob.hasFreeHand = function(ch) { 
+	if (!.tmp.mob.hasHands(ch)) return false;
+	var w; w = ch.get_eq_char("wield");
+	if (w != null) {
+	    if (ch.get_eq_char("hold") != null ||
+		ch.get_eq_char("second_wield") != null ||
+		ch.get_eq_char("shield") != null ||
+		(w.hasWeaponFlag("two_hands") && ch.size < 4))
+		    return false;
+	}
+	return true;
+    };
+    
+    // Does ch have this part?
+    .tmp.mob.hasPart = function(ch, bit_or_name) {
+	if (ch == null || ch.parts == 0 || 
+	    bit_or_name == null || bit_or_name == "")
+	    return false; // sanity checks
+	
+	// Convert bit into name if needed
+	var bit, partname; bit = .tmp.system.toNumber(bit_or_name);
+	if (bit == null) partname = bit_or_name;
+	else {
+	    partname = .tables.part_flags.values(bit);
+	    if (partname == null) return false; // sanity check if incorrect bit
+	}
+	
+	var parts; parts = .tables.part_flags.names(ch.parts).split(" ");
+	for (p in parts)
+	    if (p == partname) return true;
+	
+	return false;
+    };
+	
+    // Returns body part prototype vnum from its bit or name
+    .tmp.mob.partVnum = function(bit_or_name) {
+	// sanity check: always return at least some vnum to create a part from
+	if (bit_or_name == null || bit_or_name == "") return 191;
+	
+	var bit, name; bit = .tmp.system.toNumber(bit_or_vnum);
+	if (bit == null) {
+	    name = bit_or_name;
+	    bit = .tables.part_flags.values(name); // check if part exists
+	    if (bit == null) throw .fmt("Incorrect body part name: %s", name);
+	}
+	if      (name == "head")   return 12;
+	else if (name == "heart")  return 13;
+	else if (name == "arms")   return 14;
+	else if (name == "legs")   return 15;
+	else if (name == "guts")   return 16;
+	else if (name == "brains") return 17;
+	else                       return 191; // stub prototype for other parts
+    };
+
+    // Remove bodypart-based affects for NPCs
+    .tmp.mob.checkPartAffects = function(ch) {
+	if (!ch.is_npc()) return false;
+	var m; m = .get_mob_index(ch.pIndexData.vnum).create();
+	var result; result = false;
+		
+	if (!(ch.parts & .tables.part_flags.fins) &&
+	    (m.parts & .tables.part_flags.fins) &&
+	    (ch.affected_by & .tables.affect_flags.swim) &&
+	    (m.affected_by & .tables.affect_flags.swim)) {
+	    result = true;
+	    ch.affected_by = .unset_bit(ch.affected_by, .tables.affect_flags.swim); 
+	}
+	    
+	if (!(ch.parts & .tables.part_flags.wings) &&
+	    (m.parts & .tables.part_flags.wings) &&
+	    (ch.affected_by & .tables.affect_flags.flying) &&
+	    (m.affected_by & .tables.affect_flags.flying)) {
+	    ch.flydown();
+	    ch.affected_by = .unset_bit(ch.affected_by, .tables.affect_flags.flying);
+	    result = true;
+	}
+	m.extract(true);
+	return result;
+    };
+    
+    /////////////////////////////////////////////////////////////
+    ////////////////////// IN COMBAT ////////////////////////////
+    /////////////////////////////////////////////////////////////
+    
+    // Check if char has weapon.
+    // If yes, use weapon.attack_damage, otherwise ch.attack_damage
+    // Weaponless player always returns "bash" -- TO-DO: change for claws etc.
+    .tmp.mob.getAttackDamage = function(ch) {
+	var weapons; weapons = .List();
+	weapons = .tmp.mob.getWeapons(ch);
+	if (weapons.size() == 0) return ch.attack_damage;
+	else return weapons.front().attack_damage;
+    };
+    
+    .tmp.mob.getWeapons = function(ch) {
+	var w, sw, weapons; weapons = .List();
+	w = ch.get_eq_char("wield");
+	sw = ch.get_eq_char("second_wield");
+	if (w != null) weapons.add(w);
+	if (sw != null) weapons.add(sw);
+	return weapons;
+    };
+
+    // Returns skill proficiency with current weapon
+    .tmp.mob.getWeaponSkill = function(ch) {
+	var skill; skill = .Skill("hand to hand");
+	var skill_name; skill_name = "hand to hand";
+	if (.tmp.mob.valid(ch)) {
+	    if (!ch.is_npc()) {
+		var w; w = ch.get_eq_char("wield");
+		if (w != null) skill_name = .tmp.object.getWeaponClass(w);
+		if (skill_name == "exotic") // TO-DO: This is pretty crazy, nerf it
+		    return .min(100, ch.modifyLevel * .max(1, (3 + (ch.cur_int - 20))));
+		else if (skill_name != "stone" && skill_name != "arrow")
+		    skill = .Skill(skill_name);
+		if (skill.usable(ch))
+		    return skill.effective(ch);
+	    }
+	    else return 100; // always 100% for NPCs
+	}
+	return 0;
+    };
+	
+    .tmp.mob.hasWeaponType = function(ch, weapon_type) {
+	var weapons; weapons = .List();
+	weapons = .tmp.mob.getWeapons(ch);
+	if (weapons.size() == 0) return false;	
+	for (w in weapons)
+	    if (.tmp.object.getWeaponClass(w) == weapon_type)
+		return true;
+	return false;
+    };
+    
+    // return current hitpoints in percentage to maximum
+    .tmp.mob.health = function(ch) {
+	if (!.tmp.mob.valid(ch) || ch.max_hit == 0) return 0;
+	return (.max(0, (ch.hit * 100) / ch.max_hit));
+    };
+
+    /////////////////////////////////////////////////////////////
+    ////////////////////// SERVICES /////////////////////////////
+    /////////////////////////////////////////////////////////////
+
+    // Is master alive and in the same room?
+    .tmp.mob.masterHere = function(mob) {
+	return (.tmp.mob.valid(mob) && mob.is_npc() &&
+		mob.master != null && .tmp.mob.valid(mob.master) &&
+		mob.master.in_room == mob.in_room);	    
+    };
+    
+    // Auto-cast spells onSpec only if everyone's is fighting in the same room
+    // Not allowed during shapeshifting
+    .tmp.mob.canAutoCast = function(mob) {
+	return (.tmp.mob.masterHere(mob) &&
+		mob.pc == null &&
+		mob.fighting != null &&
+		mob.master.fighting != null);	    
+    };
+    
+    // Additional checks to make sure both victim and mob are in the same place
+    .tmp.mob.canCastOn = function(mob, vict) {
+	return (.tmp.mob.valid(vict) && 
+		vict.in_room == mob.master.in_room &&
+		vict.in_room == mob.in_room &&
+		vict.fighting != null);	    
+    };	
+    // Can cast support only on group members
+    .tmp.mob.canCastSupport = function(mob, vict) {
+	return (.tmp.mob.canAutoCast(mob) &&
+		.tmp.mob.canCastOn(mob, vict) &&
+		vict.is_same_group(mob));
+    };
+    
+    // Can cast offensive only if victim is fighting any group member
+    .tmp.mob.canCastOffensive = function(mob, vict) {
+	return (.tmp.mob.canAutoCast(mob) &&
+		.tmp.mob.canCastOn(mob,vict) &&
+		mob.fighting == vict && vict.fighting.is_same_group(mob) &&
+		!vict.is_safe(mob));
+    };
+    
+    // Check if mob has any special service occupation (except battlehorse).
+    // NB: ch.hasDestiny consists of this + battlehorse + quest mobs
+    .tmp.mob.hasService = function(ch) {
+	return (ch.is_npc() &&
+		(ch.hasOccupation("shopper") || ch.hasOccupation("practicer") ||
+		 ch.hasOccupation("repairman") || ch.hasOccupation("quest_trader") ||
+		 ch.hasOccupation("quest_master") || ch.hasOccupation("healer") ||
+		 ch.hasOccupation("smithman") || ch.hasOccupation("trainer") ||
+		 ch.hasOccupation("clanguard") || ch.hasOccupation("adept")));
+    };
+
+    // determine whether any ch can rescue victim in battle
+    .tmp.mob.canRescue = function(ch, victim, verbose) {
+	var msg; msg = "";
+	var enemy; enemy = victim.fighting;
+	
+	if (ch.fighting == null)
+	    msg = .fmt("Но ты сейчас не сражаешься!");
+	else if (victim == null || !ch.can_see_mob(victim))
+	    msg = .fmt("Ты не видишь, кого спасать.");
+	else if (enemy == null)
+	    msg = .fmt("Но %1$C1 сейчас не сража%1$nется|ются!", victim);
+	else if (enemy == ch)
+	    msg = .fmt("Перед тем, как спасать %1$C4, наверное стоит перестать %1$P2 мутузить.", victim);	    
+	else if (ch == victim)
+	    msg = .fmt("Чтобы спасти себя от этого противника, попробуй просто {1{y{hcубежать{x{2.");
+	else if (!victim.is_npc() && !victim.is_same_group(ch))
+	    msg = .fmt("Чтобы спасать %1$C4, нужно сначала вступить с %1$P5 в группу.", victim);
+	else if (ch.is_safe(enemy))
+	    msg = .fmt("Ты не можешь вступить в бой против %1$C4.", enemy);
+	else if (!ch.is_npc() && ch.shadow > 0)
+	    msg = .fmt("Эта странная тень не дает тебе понять, кого спасать.");	    
+	else if (enemy.is_npc() && (enemy.off_flags & .tables.off_flags.area_attack))
+	    msg = .fmt("Отвлечь %1$C4 не выйдет -- %1$P1 атаку%1$nет|ют всех сразу.", enemy);
+	else if (victim.dead)
+	    msg = .fmt("%^C4 уже поздно спасать.", victim);
+	else if (enemy.dead)
+	    msg = .fmt("%^C4 незачем спасать -- %C1 уже труп!", victim, enemy);		    
+	else if (ch.is_npc() && ch.pc != null)
+	    msg = .fmt("В чужом теле спасти никого не получится.");	
+	    
+	if (msg != "") {
+	    if (verbose) {
+		ch.act(msg);
+		ch.echoMaster(msg);
+	    }
+	    return false;
+	}	
+	return true;
+    };
+    
+    // determine whether a follower can rescue their master
+    .tmp.mob.canRescueMaster = function(ch) {
+	return (.tmp.mob.masterHere(ch) &&
+		ch.fighting != null && ch.master.fighting != null &&
+		ch.fighting != ch.master && 
+		.tmp.mob.valid(ch.master.fighting) && 
+		ch.master.in_room == ch.master.fighting.in_room &&
+		ch.can_see_mob(ch.master) &&
+		!ch.is_safe(ch.master.fighting) && 
+		!(ch.master.fighting.is_npc() && (ch.master.fighting.off_flags & .tables.off_flags.area_attack)) && 
+		ch.master.fighting.fighting == ch.master);
+    };
+
+    /////////////////////////////////////////////////////////////
+    ////////////////////// PC ONLY //////////////////////////////
+    /////////////////////////////////////////////////////////////
+    
+    // Use this helper to correctly check for fightspam config flag
+    // TO-DO (RUFFINA): replace this with native parameters in act/comm
+    .tmp.mob.fightspam = function(vict, ch, vict_msg, ch_msg, room_msg) {
+	if (!vict.is_npc() && (vict.config & .tables.config_flags.fightspam))
+	    vict.act(vict_msg, vict, ch);
+	    
+	if (!ch.is_npc() && (ch.config & .tables.config_flags.fightspam))
+	    ch.act(ch_msg, vict, ch);
+	    
+	for (wch in vict.in_room.ppl.sub(ch).sub(vict))  
+	    if (!wch.is_npc() && .tmp.mob.awake(wch) && !.tmp.mob.isBlind(wch) &&
+		(wch.config & .tables.config_flags.fightspam))
+		wch.act(room_msg, vict, ch);
+    };
+    
+    // Use this helper to set THIEF flag to the player (T)
+    .tmp.mob.setThief = function(ch) {
+	if (!.tmp.mob.valid(ch) || ch.is_npc()) return;
+	ch.PK_flag = .unset_bit(ch.PK_flag, 1); // remove SLAIN
+	
+	if (!(ch.PK_flag & 16)) {
+	    ch.PK_flag = .set_bit(ch.PK_flag, 16); // add THIEF
+	    ch.act("Ты получаешь метку {RВОРЮГИ!{x");
+	}
+
+	ch.PK_time_t = 15 * 16; //.tmp.time.hours(15);
+	ch.act("На протяжении следующих {Y15 тиков{x на тебя сможет {hh32напасть{x любой игрок.");
+    };	
+})
