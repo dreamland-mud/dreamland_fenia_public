@@ -21,7 +21,7 @@
 		if (room.liquid != null) {
 		    var liq; liq = room.liquid.short_descr;
 		    if (liq != null && liq != "")
-			msg = .fmt("в $1$N4", liq);
+			msg = .fmt("в %1$N4", liq);
 		    else msg = "в воду";
 		} else msg = "в воду";
 	    }

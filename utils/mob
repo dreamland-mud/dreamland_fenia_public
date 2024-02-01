@@ -102,6 +102,17 @@
     };
     
     // TO-DO: add isDeaf helper -- is PC deaf flag, deafen, no ears, sleeping etc.
+
+    // Determine whether a mob is capable of flying
+    .tmp.mob.canFly = function(ch) {
+	if (!.tmp.mob.valid(ch)) return false;
+	if (ch.isAffected("flying") 
+	    || ch.affected_by & .tables.affect_flags.flying) return true;
+	if (ch.mount != null
+	    && ch.riding
+	    && .tmp.mob.canFly(ch.mount)) return true;
+	return false;
+    };
     
     .tmp.mob.isUndead = function(ch) {
 	return ( (ch.is_npc() && (ch.act  & .tables.act_flags.undead || 
@@ -139,7 +150,9 @@
 	return (ch == null ||
 		.tmp.mob.isUndead(ch) ||
 		.tmp.mob.isObject(ch) ||
-		.tmp.mob.isEthereal(ch));
+		.tmp.mob.isEthereal(ch) ||
+		(!(ch.parts & .tables.part_flags.heart) 
+		 && !(ch.form & .tables.form_flags.cold_blood)));
     };
     
     // Check if a mob has legs and can be thrown to the ground.
@@ -433,6 +446,17 @@
 		&& !(ch.master.fighting.off_flags & .tables.off_flags.area_attack));
     };
 
+    .tmp.mob.sameAlign = function(ch, vict) {
+	return (   (ch.good && vict.good) 
+		|| (ch.neutral && vict.neutral)
+		|| (ch.evil && vict.evil));
+    };
+
+    .tmp.mob.oppositeAlign = function(ch, vict) {
+	return (   (ch.good && vict.evil) 
+		|| (ch.evil && vict.good));
+    };
+    
     /////////////////////////////////////////////////////////////
     ////////////////////// PC ONLY //////////////////////////////
     /////////////////////////////////////////////////////////////
