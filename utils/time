@@ -57,7 +57,12 @@
 	msg = msg + " реального времени";
 	return msg;		
     };
-
+    
+    //This one converts seconds into pulses -- for beats/waits/dazes.
+    .tmp.time.seconds = function(duration) {
+	return duration * 4;		
+    };
+    
     // These helper functions operate in ticks -- for timers and affects.
     .tmp.time.hours = function(duration) {
 	return duration * 60;		
@@ -83,10 +88,5 @@
 	if (tier == 3) return .tmp.time.weeks(5);
 	if (tier == 4) return .tmp.time.weeks(10);
 	return 0;
-    };
-    
-    // And this one converts seconds into pulses -- for beats/waits/dazes.
-    .tmp.time.seconds = function(duration) {
-	return duration * 4;		
     };
 })

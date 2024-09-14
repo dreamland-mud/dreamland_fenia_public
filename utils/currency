@@ -25,24 +25,57 @@
 	}
 	return amount;
     };
+    
+    // Receive an item as a reward
+    gainItem = function(ch, vnum, verbose) {
+	var obj; obj = .get_obj_index(vnum).create().obj_to_char(ch);
+	if (verbose)
+	    ch.act("{yВ награду ты получаешь {C%1$O4{y, ништяк!{x", obj);        
+    };
+    
+    gainXP = function(ch, amount, verbose) {
+	if (verbose)
+	    ch.act("{yТы получаешь {G%1$d {yочков опыта!{x", amount);
+	ch.gainExp(amount);
+    };
+
+    // Give character qp, e.g. as a quest reward
+    gainQP = function(ch, amount, verbose) {
+	ch.questpoints = ch.questpoints + amount;
+	if (verbose)
+	    ch.act("{yВ награду ты получаешь {C%1$d {y{leqp{lrквестовых единиц{x{y, уииии!{x",
+		.abs(amount));	    
+    };
+    
+    // Characters pays (loses) amount in qp, e.g. as a payment for services
+    payQP = function(ch, amount, verbose) {
+	if (ch.questpoints >= amount) {
+	    ch.questpoints = ch.questpoints - amount;
+	    if (verbose)
+		ch.act("{yТы вздыхаешь, выплачивая {R%1$d {y{leqp{lrквестовых единиц{x{y.{x",
+		    .abs(amount));
+	}
+	else if (verbose)
+	    ch.act("{yУ тебя всего {c%1$d {y{leqp{lrквестовых единиц{x{y -- а требуется {C%2$d{y.{x",
+		ch.questpoints, .abs(amount));
+    };
 	
-    // Process payment in any available currency, converted from amount in silver
+    // Pay amount in gold/silver or give character money
     pay = function(ch, amount, verbose) {
 	// Use negative amount to add/deposit gold to character
 	var silver_amount, gold_amount, silver_msg, gold_msg;
 	gold_amount = amount / 100;
 	silver_amount = amount % 100;
-	silver_msg=''; gold_msg='';
+	silver_msg = ''; gold_msg = '';
 	if (amount <= 0) {
 	    ch.silver = ch.silver - silver_amount;
 	    ch.gold = ch.gold - gold_amount;
 	    if (verbose) {
-		if(gold_amount!=0) {
+		if (gold_amount != 0)
 		    gold_msg = .fmt('{1{Y%1$d{2 золот%1$Iой|ых|ых', .abs(gold_amount));
-		}
-		if(silver_amount!=0) {
+		if (silver_amount != 0) {
 		    silver_msg = .fmt('{1{W%1$d{2 серебрянн%1$Iую|ых|ых моне%1$Iту|ты|т', .abs(silver_amount));
-		    if(gold_amount!=0) silver_msg = .fmt(' и %s', silver_msg);
+		    if (gold_amount !=0 ) silver_msg = .fmt(' и %s', silver_msg);
 		}
 		ch.act("{yТвой кошелек становится тяжелее на %1$s%2$s.{x", gold_msg, silver_msg);
 	    }
@@ -64,12 +97,12 @@
 	    }
 
 	    if (verbose) {
-		if(gold_amount!=0) {
+		if (gold_amount != 0) {
 		    gold_msg = .fmt('{1{Y%1$d{2 золот%1$Iой|ых|ых', .abs(gold_amount));
 		}
-		if(silver_amount!=0) {
+		if (silver_amount != 0) {
 		    silver_msg = .fmt('{1{W%1$d{2 серебрянн%1$Iую|ых|ых моне%1$Iту|ты|т', .abs(silver_amount));
-		    if(gold_amount!=0) silver_msg = .fmt(' и %s', silver_msg);
+		    if (gold_amount != 0) silver_msg = .fmt(' и %s', silver_msg);
 		}
 		ch.act("{yТы вздыхаешь, выплачивая %1$s%2$s.{x", gold_msg, silver_msg);
 	    }

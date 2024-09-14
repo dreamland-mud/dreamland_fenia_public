@@ -11,7 +11,7 @@
 	return (ch != null && !ch.dead && (ch.is_npc() || ch.online));
     };
 
-    // Is ch awake and capable to perceive reality?
+    // Is ch awake and capable of perceiving reality?
     .tmp.mob.awake = function(ch) {
 	return (.tmp.mob.valid(ch) &&
 		ch.position >= .tables.position_table.rest);
@@ -54,6 +54,31 @@
 	}
 	return boat;
     };
+
+    // Basic helper to determine mob's "weight" (based on C++ make_corpse)
+    // Calculate in 1/10 of a pound (to match C++), then convert to pounds
+    .tmp.mob.weight = function(ch) {		
+	var weight;
+
+	// Tiny: 1-6 kg <-- 2-12 pounds -- insects/small rodents
+	if (ch.size == 0) weight = .number_range(20, 120);
+	// Small: 7-40 kg <-- 14-80 pounds -- rodents/birds/kenders/faeries
+	else if (ch.size == 1) weight = .number_range(140, 800);
+	// Medium: 40-110 kg <-- 80-220 pounds -- most humanoids and PC races
+	else if (ch.size == 2) weight = .number_range(800, 2200);
+	// Large: 150-300 kg <-- 300-600 pounds -- centaurs/hoofed/trolls/etc
+	else if (ch.size == 3) weight = .number_range(3000, 6000);
+	// Huge: 325-500 kg <-- 650-1000 pounds -- giants/mid-size dragons
+	else if (ch.size == 4) weight = .number_range(6500, 10000);
+	// Giant: 600-900 kg <-- 1100-1800 pounds -- large dragons
+	else if (ch.size == 5) weight = .number_range(11000, 18000);
+	// Gargantuan: 1000-1500 kg <-- 2000-3000 pounds -- ancient dragons etc.
+	else weight = .number_range(20000, 30000);
+	
+	if (.tmp.mob.isEthereal(ch)) weight = weight / 10;
+	return weight / 10; // return weight in pounds
+    };
+    
     
     /////////////////////////////////////////////////////////////
     ////////////////////// BODY PARTS / FORMS ///////////////////
@@ -230,6 +255,12 @@
 	else                       return 191; // stub prototype for other parts
     };
 
+    // Define "internal" body parts that can't be chopped off easily
+    .tmp.mob.isInternalPart = function(part) {
+	return (part == "heart" || part == "guts" 
+		|| part == "brains" || part == "eye");
+    };
+    
     // Remove bodypart-based affects for NPCs
     .tmp.mob.checkPartAffects = function(ch) {
 	if (!ch.is_npc()) return false;
@@ -256,6 +287,81 @@
 	return result;
     };
     
+    // Determine in character can wear obj: if wearloc matches ch's bodyparts
+    .tmp.mob.canWear = function(ch, obj) {
+	if (!.tmp.mob.valid(ch) || !.tmp.object.valid(obj)) return false;
+	if (!obj.worn) return true; // revamp this helper later to exclude this
+	
+	// TO-DO: 
+	// - fingers on leg paws
+	// - hands attached to tentacles
+	// - hold/shields in tentacles
+	// - wrists on tentacles/legs(paws)
+	if (obj.wear_loc == "finger_l" || obj.wear_loc == "finger_r")
+	    return (.tmp.mob.hasPart(ch, "arms") &&
+		    .tmp.mob.hasPart(ch, "hands") &&
+		    .tmp.mob.hasPart(ch, "fingers"));
+	else if (obj.wear_loc == "neck_1" || obj.wear_loc == "neck_2")
+	    return (.tmp.mob.hasPart(ch, "head") &&
+		    !(ch.form & .tables.form_flags.intangible));
+	else if (obj.wear_loc == "body")
+	    return (!(ch.form & .tables.form_flags.intangible));
+	else if (obj.wear_loc == "head")
+	    return (.tmp.mob.hasPart(ch, "head"));
+	else if (obj.wear_loc == "legs")
+	    return (.tmp.mob.hasPart(ch, "legs"));
+	else if (obj.wear_loc == "feet")
+	    return (.tmp.mob.hasPart(ch, "feet") &&
+		    .tmp.mob.hasPart(ch, "legs"));
+	else if (obj.wear_loc == "hands")
+	    return (.tmp.mob.hasPart(ch, "hands") &&
+		    .tmp.mob.hasPart(ch, "arms"));            
+	else if (obj.wear_loc == "arms")
+	    return (.tmp.mob.hasPart(ch, "arms"));
+	else if (obj.wear_loc == "shield")
+	    return (.tmp.mob.hasPart(ch, "hands") &&
+		    .tmp.mob.hasPart(ch, "arms") &&
+		    .tmp.mob.hasPart(ch, "fingers"));
+	else if (obj.wear_loc == "about")
+	    return true; // anyone can wear cloaks (for now)                   
+	else if (obj.wear_loc == "waist")
+	    return (!(ch.form & .tables.form_flags.intangible));
+	else if (obj.wear_loc == "wrist_l" || obj.wear_loc == "wrist_r")
+	    return (.tmp.mob.hasPart(ch, "arms"));
+	else if (obj.wear_loc == "wield" || obj.wear_loc == "second_wield") 
+	    // ghosts can wear weapons
+	    return (.tmp.mob.isEthereal(ch) ||
+			(.tmp.mob.hasPart(ch, "hands") &&
+			.tmp.mob.hasPart(ch, "arms") &&
+			.tmp.mob.hasPart(ch, "fingers")));
+	else if (obj.wear_loc == "hold") 
+	    // ghosts can hold items (but not shields)
+	    return (.tmp.mob.isEthereal(ch) ||
+			(.tmp.mob.hasPart(ch, "hands") &&
+			.tmp.mob.hasPart(ch, "arms") &&
+			.tmp.mob.hasPart(ch, "fingers")));
+	else if (obj.wear_loc == "float")
+	    return true; // anyone can wear floats                      
+	else if (obj.wear_loc == "light")
+	    return true; // anyone can wear lights 
+	else if (obj.wear_loc == "tattoo")
+	    return (!(ch.form & .tables.form_flags.intangible));
+	else if (obj.wear_loc == "face")
+	    return (.tmp.mob.hasPart(ch, "head"));
+	else if (obj.wear_loc == "ears")
+	    return (.tmp.mob.hasPart(ch, "ear"));
+	else if (obj.wear_loc == "horse")
+	    return (.tmp.mob.hasPart(ch, "four_hooves") &&
+		    !(ch.form & .tables.form_flags.intangible));
+	else if (obj.wear_loc == "hooves")
+	    return (.tmp.mob.hasPart(ch, "two_hooves") ||
+		    .tmp.mob.hasPart(ch, "four_hooves"));
+	else if (obj.wear_loc == "hair")
+	    return (.tmp.mob.hasPart(ch, "head") &&
+		    ch.form & .tables.form_flags.mammal);
+	else return true; // no more specifics for now
+    };
+	
     /////////////////////////////////////////////////////////////
     ////////////////////// IN COMBAT ////////////////////////////
     /////////////////////////////////////////////////////////////
@@ -338,7 +444,7 @@
     };
 
     /////////////////////////////////////////////////////////////
-    ////////////////////// SERVICES /////////////////////////////
+    ////////////////////// ADVANCED /////////////////////////////
     /////////////////////////////////////////////////////////////
 
     // Is master alive and in the same room?
@@ -456,7 +562,7 @@
 	return (   (ch.good && vict.evil) 
 		|| (ch.evil && vict.good));
     };
-    
+
     /////////////////////////////////////////////////////////////
     ////////////////////// PC ONLY //////////////////////////////
     /////////////////////////////////////////////////////////////

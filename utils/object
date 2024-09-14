@@ -1,14 +1,9 @@
 .apply(function() {
     if (.tmp.object == null) .tmp.object = .Map();
-
-    /////////////////////////////////////////////////////////////
-    ////////////////////// BASIC HELPERS ////////////////////////
-    /////////////////////////////////////////////////////////////
     
-    // Basic helper to check if the obj "exists"
-    .tmp.object.valid = function(obj) {
-	return (obj != null && !obj.dead && obj.condition > 0);
-    };
+    /////////////////////////////////////////////////////////////
+    ////////////////////// MATERIALS ////////////////////////////
+    /////////////////////////////////////////////////////////////
     
     // TO-DO (Ruffina): move this to fenia API
     .tmp.object.indestructible = function(obj) {
@@ -23,6 +18,38 @@
 
     .tmp.object.isElastic = function(obj) {
 	return (obj.material.cloth || obj.material.leather);
+    };
+    
+    // Return material config structure by material name
+    .tmp.object.getMaterialConfig = function(material_name) {
+	var material; material = .Map();
+	for (k in .config("fight/material").keys) {
+	    if (.config("fight/material")[k].name == material_name) {
+		material = .config("fight/material")[k];
+		break;
+	    }
+	}
+	return material;
+    };
+    
+    .tmp.object.materialHasFlag = function(obj, flag) {
+	var material, found; found = false; 
+	for (m in obj.material.name.split(", ")) {
+	    material = .tmp.object.getMaterialConfig(m);
+	    if (material.flags.contains(flag))
+		found = true;
+	}
+	
+	return found;
+    };
+    
+    /////////////////////////////////////////////////////////////
+    ////////////////////// BASIC HELPERS ////////////////////////
+    /////////////////////////////////////////////////////////////
+    
+    // Basic helper to check if the obj "exists"
+    .tmp.object.valid = function(obj) {
+	return (obj != null && !obj.dead && obj.condition > 0);
     };
 
     // Determine whether an item can be removed if worn
@@ -179,7 +206,9 @@
 	
 	if (.tmp.object.indestructible(obj) || room == null) return false;
 	// +10% damage for each point of hardness below 5, -10% for each point above
+	// quad damage to fragile materials
 	percent = percent + percent * (50 - obj.material.hardness * 10) / 100;
+	if (.tmp.object.materialHasFlag(obj, "fragile")) percent = percent * 4;
 	percent = .urange(1, percent, 100);
 	
 	if (obj.condition <= percent) .tmp.object.breakByForce(obj, verbose);
@@ -211,22 +240,22 @@
 	if (room == null) return false;
 
 	// TO-DO: add more material specific messages
-	var msg; msg = .fmt("%1$^O1 распада%1$nется|ются на части.", obj);
-	if (obj.material.metal)
-	    msg = .fmt("%1$^O1 раскалыва%1$nется|ются на куски.", obj);
-	else if (obj.material.mineral)
-	    msg = .fmt("%1$^O1 рассыпа%1$nется|ются на крошечные осколки.", obj);
-	else if (obj.material.wood)
-	    msg = .fmt("%1$^O1 превраща%1$nется|ются в труху и опилки.", obj);
-	    
-	if (verbose) .tmp.room.echo(obj.getRoom(), msg);
-	
+	if (verbose) {
+	    if (obj.material.metal)
+		room.echo("%1$^O1 раскалыва%1$nется|ются на куски.", obj);
+	    else if (obj.material.mineral)
+		room.echo("%1$^O1 рассыпа%1$nется|ются на крошечные осколки.", obj);
+	    else if (obj.material.wood)
+		room.echo("%1$^O1 превраща%1$nется|ются в труху и опилки.", obj);
+	    else room.echo("%1$^O1 распада%1$nется|ются на части.", obj);
+	}
+
 	////////////////////// CONTAINERS //////////////////////
 	if (obj.item_type == .tables.item_table.container ||
 	    obj.item_type == .tables.item_table.npc_corpse) {
 	    if (obj.items.size() > 0) {
 		// TO-DO (Taiphoen): add sector-specific messages, handle sector air
-		obj.getRoom().echo("Содержимое %O2 вываливается наружу.", obj);
+		room.echo("Содержимое %O2 вываливается наружу.", obj);
 		for (item in obj.items)
 		    item.obj_to_room(room);
 	    }
@@ -234,10 +263,29 @@
 	
 	//////////////////////// DRINKS ////////////////////////
 	// TO-DO (Taiphoen): add fountain destruction with spill out
-	if (obj.item_type == .tables.item_table.drink && obj.value1 > 0)
-	    obj.pour_out();
+	if (obj.item_type == .tables.item_table.drink && obj.value1 > 0) {
+	    // Replacing obj.pour_out() code here and duplicating from C++ 
+	    // for better handling. TO-DO: call pourOut triggers here
+	    var liq; liq = .Liquid(obj.value2);
+	    
+	    if (room.isWater())
+		room.echo("Поток %N2 из %O2 выплескивается в %N4.",
+		    liq.short_descr, obj, room.liquid.short_descr);
+	    // TO-DO: add fall through for the liquid
+	    else if (room.sector_type == .tables.sector_table.air)
+		room.echo("Поток %N2 из %O2 устремляется куда-то вниз и пропадает.",
+		    liq.short_descr, obj);
+	    else if (room.sector_type == .tables.sector_table.desert)
+		room.echo("Лужа %N2 из %O2 с шипением испаряется на песке.",
+		    liq.short_descr, obj);
+	    else {
+		room.echo("Поток %N2 из %O2 проливается %s.",
+		    liq.short_descr, obj, .tmp.room.dropWhere(room));
+		// TO-DO: control the liquid amount
+		.tmp.object.create_puddle(obj.value2, room);
+	    }    
+	}
 
-	//obj.extract(true);
 	.tmp.system.trueExtract(obj);
 	return true; 
 	}

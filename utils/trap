@@ -1,0 +1,88 @@
+.apply(function() {
+    
+    //////////////////// "FALLING" TRAPS ////////////////////
+    
+    if (.tmp.trap == null) .tmp.trap = .Map();
+    
+    // Called from onDiveUpdate every 4 seconds. Decreases the death_ground_delay
+    // counter and eventually moves the character further.
+    .tmp.trap.work = function(ch, trap) {
+	if (trap.msgDiveSelf != "") 
+	    ch.act(trap.msgDiveSelf, ch);
+	
+	if (trap.msgDiveOther != "") 
+	    ch.recho(trap.msgDiveOther, ch);
+
+	ch.death_ground_delay = ch.death_ground_delay - 1;
+
+	if (ch.death_ground_delay > 0) 
+	    return;
+
+	ch.death_ground_delay = 0;
+	ch.trap = 0;
+	
+	var targetRoom; targetRoom = .get_room_index(trap.target);
+	
+	if (targetRoom == null) {
+	    ch.act(trap.msgMoveSelf, ch);
+	    ch.recho(trap.msgMoveOther, ch);
+	    ch.raw_kill(-1, ch, "room");
+	    
+	} else {
+	    ch.transfer(
+		targetRoom, ch, 
+		trap.msgMoveOther, trap.msgMoveSelf,
+		trap.msgTargetOther, trap.msgTargetSelf);
+	}
+    };
+
+    // Called from onDive to see if ch got into this trap.
+    // onDive is called if ch enters the room or every 4 seconds when fighting.
+    .tmp.trap.matches = function(ch, trap, movedanger) {
+	//if (ch.is_immortal()) return false;
+
+	if (!ch.is_npc() && (ch.PK_flag & 8)) 
+	    return false; // GHOST
+
+	// Most traps (except for a few in New Thalos) don't capture flying folks.
+	if (ch.flying && trap.flyingSafe) 
+	    return false;
+
+	// Best move for this trap, set to 2, 'movetype normal'.
+	// Move this var to behavior properties if want to override it for
+	// each trap.
+	var optimalMove; optimalMove = 2;
+	
+	// Trap surfaceQuality defaults to 50.
+	// Quality 100 would mean trap never works for normal movetype
+	// and only reacts to running/fighting. Quality 0 means trap
+	// has a chance to be avoided only when moving very carefully.
+
+	// Your chances at avoiding the trap are better if you move
+	// more carefully than normal (i.e. with movedanger 1 or 0).
+	var chance; chance = 20 * (movedanger - optimalMove);
+	
+	// Roll the die. For normal move, 50% to avoid the trap;
+	// for running/fighting chances are decreased by 20%.
+	if (.number_percent() <= 0 + trap.surfaceQuality - chance)
+	    return false;
+
+	return true;
+    };
+    
+    // Called from onDive if the trap becomes active for the character.
+    .tmp.trap.capture = function(ch, trap) {
+	if (!ch.is_npc()) 
+	    ch.eraseAttribute("speedwalk");
+
+	if (trap.msgTrapSelf != "") 
+	    ch.act(trap.msgTrapSelf, ch);
+	    
+	if (trap.msgTrapOther != "") 
+	    ch.recho(trap.msgTrapOther, ch);
+
+	ch.death_ground_delay = trap.divingSpeed;
+	ch.trap = .tables.trap_flags.values(trap.flags);
+    };
+    
+})

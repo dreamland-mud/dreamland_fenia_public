@@ -3,7 +3,7 @@
     // Стражник северных ворот
     .get_mob_index(3067).onBribe = function(mob, ch, gold, silver) {
 	var amount; amount = gold * 100 + silver;
-	
+
 	if (amount < 50) {
 	    mob.say("Такие гроши?! Это оскорбление чести моего мундира!");
 	    if (!mob.is_safe(ch)) mob.one_hit(ch); // Напасть, если возможно
@@ -14,65 +14,65 @@
 	}
 	else mob.say("Меньше чем за тысячу серебряных я и усом шевелить не стану.");
     };
-    
+
     // Валькирия
     .get_mob_index(3076).onGreet = function(mob, ch) {
 	if (!.tmp.mob.canGreet(mob, ch) // Мертв, спит или не видит
 	    || ch.is_npc() // Не реагируем на других мобов
 	    || !.tmp.mob.canSpeak(mob)) // Не может говорить
 	    return;
-	
+
 	// Проверить, задано ли у игрока русское имя
 	if (ch.russianName != "") mob.say("Привет, %#N1!", ch.russianName);
 	else mob.say("Привет, %#C1!", ch);
     };
-    
-    
+
+
     // Доспешник
     .get_mob_index(3004).onGreet = function(mob, ch) {
 	if (!.tmp.mob.canGreet(mob, ch) // Мертв, спит или не видит
 	    || ch.is_npc() // Не реагируем на других мобов
 	    || !.tmp.mob.canSpeak(mob)) // Не может говорить
 	    return;
-    
-	if (ch.russianName != "")	
+
+	if (ch.russianName != "")
 	    mob.say("Добро пожаловать в мою лавку, %N1.", ch.russianName);
 	else
 	    mob.say("Добро пожаловать в мою лавку, %C1.", ch);
 	mob.say("Чем я могу вас сегодня заинтересовать?");
 	mob.say("У меня в магазине только самые лучшие доспехи.");
-	mob.interpret("smile");	
+	mob.interpret("smile");
     };
-    
+
     // Пекарь
     .get_mob_index(3001).onGreet = function(mob, ch) {
 	if (!.tmp.mob.canGreet(mob, ch) // Мертв, спит или не видит
 	    || ch.is_npc() // Не реагируем на других мобов
 	    || !.tmp.mob.canSpeak(mob)) // Не может говорить
 	    return;
-    
+
 	if (ch.newbie // Кормит голодных и бедных новичков до 10 уровня
-	    && ch.getModifyLevel() <= 10 
+	    && ch.getModifyLevel() <= 10
 	    && ch.cond_hunger < 1
-	    && ch.gold == 0 && ch.bank_g == 0 
-	    && ch.bank_s == 0 && ch.silver < 20) 
+	    && ch.gold == 0 && ch.bank_g == 0
+	    && ch.bank_s == 0 && ch.silver < 20)
 	{
-	    if (ch.russianName != "")	
+	    if (ch.russianName != "")
 		mob.say("Что, %^N1, в желудке пусто и в карманах не густо?", ch.russianName);
 	    else
 		mob.say("Что, %^C1, в желудке пусто и в карманах не густо?", ch);
-	    
+
 	    mob.give(ch, 3009);
 	}
 	else {
-	    if (ch.russianName != "")	
+	    if (ch.russianName != "")
 		mob.say("Добро пожаловать в мою лавку, %N1.", ch.russianName);
 	    else
 		mob.say("Добро пожаловать в мою лавку, %C1.", ch);
 	}
 	mob.interpret("smile");
     };
-    
+
     .get_mob_index(3001).onArea = function(mob) {
 	if (.chance(5) && .tmp.mob.canActAmbient(mob) && .tmp.mob.canSpeak(mob)) {
 	    mob.say("Покупайте мою выпечку -- помрете толстыми и красивыми!");
@@ -80,29 +80,29 @@
 	} // В этих триггерах надо возвращать false, чтобы сработали другие такие же
 	return false;
     };
-    
+
     // Нищий
     .get_mob_index(3065).onGreet = function(mob, ch) {
 	if (!.tmp.mob.canGreet(mob, ch) // Мертв, спит или не видит
 	    || ch.is_npc() // Не реагируем на других мобов
 	    || !.tmp.mob.canSpeak(mob)) // Не может говорить
 	    return;
-    
-	if (ch.russianName != "")	
+
+	if (ch.russianName != "")
 	    mob.say("Эй, %N1! У тебя глаза красивые, слющай!", ch.russianName);
 	else
 	    mob.say("Эй, %C1! У тебя глаза красивые, слющай!", ch);
-	
+
 	mob.say("Подай монетку, опохмелиться не хватает.");
     };
-    
+
     .get_mob_index(3065).onBribe = function(mob, ch, gold, silver) {
 	if (!.tmp.mob.canGreet(mob, ch) // Мертв, спит или не видит
 	    || !.tmp.mob.canSpeak(mob)) // Не может говорить
 	    return;
-	    
+
 	var amount; amount = gold * 100 + silver;
-	
+
 	if (amount < 10)
 	    mob.interpret_raw("thank", ch.name);
 	else if (amount < 100)
@@ -119,45 +119,45 @@
 	    ch.act("%1$^C1 лез%1$nет|ют целоваться к тебе.", mob);
 	}
     };
-    
+
     .get_mob_index(3065).onFight = function(mob, ch) {
 	if (mob.hit < mob.max_hit / 2 && .tmp.mob.canSpeak(mob))
 	    mob.interpret_raw("yell", "Помогите! Убивают!!!");
     };
-    
+
     .get_mob_index(3065).onDeath = function(mob, ch) {
 	if (!.tmp.mob.canSpeak(mob)) // Не может говорить
 	    return;
-	    
+
 	if (.chance(50)) mob.say("Я ухожу в лучший мир.");
 	else mob.say(.fmt("Лео, прости меня, грешни%1$Gка|ка|цу...", mob));
-    
+
 	return false;
     };
-    
+
     // Пьяница
     .get_mob_index(3064).onGreet = function(mob, ch) {
 	if (!.tmp.mob.canGreet(mob, ch) // Мертв, спит или не видит
 	    || ch.is_npc() // Не реагируем на других мобов
 	    || !.tmp.mob.canSpeak(mob)) // Не может говорить
 	    return;
-    
+
 	if (.chance(95) || ch.is_immortal())  // Не нападать на богов :)
 	    return;
-	    
+
 	mob.interpret_raw("yell", "Монстр! Я нашел, нашел монстра! БАНЗАЙ!");
 	mob.one_hit(ch);
     };
-    
+
     .get_mob_index(3064).onBribe = function(mob, ch, gold, silver) {
 	if (!.tmp.mob.canGreet(mob, ch) // Мертв, спит или не видит
 	    || !.tmp.mob.canSpeak(mob)) // Не может говорить
 	    return;
-	    
+
        mob.say("Ого! Много градусов! Крепкий напиток!");
        mob.interpret("sing");
     };
-    
+
     .get_mob_index(3064).onArea = function(mob) {
 	if (.tmp.mob.canActAmbient(mob) && .chance(5)) {
 	    mob.interpret("dance");
@@ -167,39 +167,39 @@
 	    mob.interpret("sing");
 	    return true;
 	}
-	
+
 	return false;
     };
-    
+
     // Бакалейщик
     .get_mob_index(3002).onGreet = function(mob, ch) {
 	if (!.tmp.mob.canGreet(mob, ch) // Мертв, спит или не видит
 	    || ch.is_npc() // Не реагируем на других мобов
 	    || !.tmp.mob.canSpeak(mob)) // Не может говорить
 	    return;
-	    
-	if (ch.russianName != "")	
+
+	if (ch.russianName != "")
 	    mob.say("Добро пожаловать в мою лавку, %N1.", ch.russianName);
 	else
 	    mob.say("Добро пожаловать в мою лавку, %C1.", ch);
-	
+
     };
-    
+
     .get_mob_index(3002).onArea = function(mob) {
 	if (.tmp.mob.canActAmbient(mob) && .tmp.mob.canSpeak(mob) && .chance(5)) {
 	    mob.say("Чем я могу тебя сегодня заинтересовать?");
 	    return true;
 	}
-	
+
 	return false;
     };
-    
+
     // Бомж
     .get_mob_index(3063).onDeath = function(mob, ch) {
 	mob.interpret_raw("emote", "поворачивает голову и безумно хохочет!");
 	return false;
     };
-    
+
     .get_mob_index(3063).onArea = function(mob) {
 	if (.tmp.mob.canActAmbient(mob) && .tmp.mob.canSpeak(mob) && .chance(5)) {
 	    mob.say("Смерть! Кровь! Террор!");
@@ -209,34 +209,63 @@
 		if (!.tmp.mob.valid(ch)) continue;
 		if (ch.is_immortal() || ch.is_npc()) continue;
 		if (ch.modifyLevel > mob.level+2) continue;
-	    
+
 		if (.chance(30) && .tmp.mob.canSpeak(mob)) {
 		    mob.interpret("wink "+ ch.name);
 		    mob.say("Слышь, мал%Gое|ой|ая, монетки не найдётся?", ch);
+		    mob.waitForSpeech = ch;
 		    return true;
 		}
 	    }
 	}
 	return false;
     };
-    
-    .get_mob_index(3063).postGreet = function(mob, ch) {
-	if (!.tmp.mob.canActAmbient(mob) 
-	    || !.tmp.mob.canActAmbient(ch)
+
+    .get_mob_index(3063).postSpeech = function(mob, ch, msg) {
+	if (!.tmp.mob.canActAmbient(mob)
 	    || ch.in_room != mob.in_room
 	    || !.tmp.mob.canSpeak(mob)
-	    || ch.is_immortal() || ch.is_npc()) return false;
+	    || mob.waitForSpeech == null
+	    || mob.waitForSpeech != ch
+	    || ch.is_immortal() || ch.is_npc()) return;
 
 	if (.chance(50) && ch.modifyLevel <= mob.level+2) {
 	    mob.say("А если найду?!");
-	    return true;			
+
+	    if(.chance(50)) return;
+
+	    mob.one_hit(ch);
+	} else {
+	    if(.chance(50))
+		mob.interpret("smirk " + ch.name);
+	    else
+		mob.interpret("grin " + ch.name);
 	}
-	return false;
+
+	mob.waitForSpeech = null;
     };
-    
+    .get_mob_index(3063).onCantLeave = function(mob, ch) {
+	if(mob.waitForSpeech == null
+	    || mob.waitForSpeech != ch) return false;
+
+	mob.waitForSpeech = null;
+
+	if (!.tmp.mob.canActAmbient(mob)
+	    || !.tmp.mob.canSpeak(mob)
+	    || ch.modifyLevel > mob.level+2
+	    || .chance(50)
+	    || ch.is_immortal() || ch.is_npc()) return false;
+
+	ch.act("%^C1 перегораживает тебе проход.", mob);
+	mob.say("А если найду?!");
+	mob.one_hit(ch);
+
+	return true;
+    };
+
     .get_mob_index(3063).onBribe = function(mob, ch, gold, silver) {
 	if (!.tmp.mob.canSpeak(mob)) return;
-	
+
 	if (ch.sex == .tables.sex_table.male)
 	    mob.say('Спасибо, добрый сэр!');
 	else if (ch.sex == .tables.sex_table.female)
@@ -245,10 +274,11 @@
 	    mob.say("Давай-ка проверим не осталось ли еще чего в твоём кошельке?");
 	    mob.one_hit(ch);
 	}
+	mob.waitForSpeech = null;
     };
-    
+
     .get_mob_index(3063).postSocial = function(mob, ch, victim, social) {
-	if (!.tmp.mob.canActAmbient(mob) 
+	if (!.tmp.mob.canActAmbient(mob)
 	    || !.tmp.mob.canActAmbient(ch)
 	    || !.tmp.mob.canSpeak(mob)
 	    || ch.in_room != mob.in_room // Персонаж уже ушел
@@ -259,8 +289,8 @@
 	if (ch.is_npc() && ch.pIndexData.vnum == 3061 && social=="grumble") {
 	    var speechVariants;
 	    speechVariants = .List().add(
-		.fmt("Как же ты доста%1$Gло|л|ла!", ch), 
-		.fmt("Доста%1$Gло|л|ла! Ноешь и ноешь!", ch), 
+		.fmt("Как же ты доста%1$Gло|л|ла!", ch),
+		.fmt("Доста%1$Gло|л|ла! Ноешь и ноешь!", ch),
 		.fmt("Ну, ты меня и доста%1$Gло|л|ла!", ch),
 		.fmt("Ну, всё! Ты меня доста%1$Gло|л|ла!", ch)
 	    );
@@ -268,7 +298,7 @@
 	    mob.one_hit(ch);
 	}
     };
-    
+
     // Плакальщик
     .get_mob_index(3144).onSpeech = function(mob, ch, speech) {
 	// Если спросить "почему [он плачет]"
@@ -278,13 +308,13 @@
 	    else mob.interpret("sob");
 	}
     };
-    
+
     // Дворник
     .get_mob_index(3061).onArea = function(mob) {
 	if (.tmp.mob.canActAmbient(mob) && .tmp.mob.canSpeak(mob) && .chance(10)) {
 	    mob.interpret("grumble");
 	    mob.say("Как все запущено...");
-	    
+
 	    if (.chance(20)) { // С вероятностью ворчит все больше и больше
 		mob.say("Каждый день мусорят и мусорят...");
 		mob.say("А мне убирать за всеми... Надоело!!!");
@@ -301,5 +331,5 @@
 	}
 	return false;
     };
-    
+
 })
