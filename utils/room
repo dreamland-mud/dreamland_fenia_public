@@ -2,6 +2,51 @@
     
     if (.tmp.room == null) .tmp.room = .Map();
 
+    .tmp.room.get_obj_behavior = function(room, bhv) {
+	for (i in room.items)
+	    if (i.hasBehavior(bhv))
+		return i;
+		
+	return null;
+    };
+    
+
+    .tmp.room.dirNames = .List().add(
+	"north",
+	"east",
+	"south",
+	"west",
+	"up",
+	"down");
+	
+    .tmp.room.dirRusNames = .List().add(
+	"на север",
+	"на восток",
+	"на юг",
+	"на запад",
+	"вверх",
+	"вниз");
+
+    .tmp.room.moveTypes = .Array();
+    .tmp.room.MoveType = function(name, enter, leave) {
+	this = .Map();
+	this.name = name;
+	this.enter = enter;
+	this.leave = leave;
+	.tmp.room.moveTypes[name] = this;
+	return this;
+    };
+    .tmp.room.MoveType("swimming", "приплы%1$Gло|л|ла", "уплы%1$Gло|л|ла");
+    .tmp.room.MoveType("waterwalk", "приш%1$Gло|ел|ла по воде", "уш%1$Gло|ел|ла по воде");
+    .tmp.room.MoveType("slink", "припол%1$Gзло|з|зла", "упол%1$Gзло|з|зла");
+    .tmp.room.MoveType("crawl", "прокрал%1$Gось|ся|ась", "прокрал%1$Gось|ся|ась");
+    .tmp.room.MoveType("normal", "приш%1$Gло|ел|ла", "уш%1$Gло|ел|ла");
+    .tmp.room.MoveType("quickly", "еще нету", "еще нету");
+    .tmp.room.MoveType("running", "прибежа%1$Gло|л|ла", "убежа%1$Gло|л|ла");
+    .tmp.room.MoveType("flee", "прибежа%1$Gло|л|ла", "сбежа%1$Gло|л|ла");
+    .tmp.room.MoveType("riding", "прискака%1$Gло|л|ла", "ускака%1$Gло|л|ла");
+    .tmp.room.MoveType("flying", "прилете%1$Gло|л|ла", "улете%1$Gло|л|ла");
+
     // "Smart" echo in the room: accounts for blindness, sleep etc.
     .tmp.room.echo = function(room, msg) {
 	if (room == null) return;
@@ -25,11 +70,21 @@
 		    else msg = "в воду";
 		} else msg = "в воду";
 	    }
+	    else if (sect == .tables.sector_table.city) {
+		if (!room.isOutside()) msg = "на пол";
+		else msg = .List().add("на дорогу", "на мостовую", "на брусчатку").random();
+	    }
 	    else if (sect == .tables.sector_table.inside) msg = "на пол";
-	    else if (sect == .tables.sector_table.hills) msg = "в траву";
-	    else if (sect == .tables.sector_table.forest) msg = "в кусты";
-	    else if (sect == .tables.sector_table.mountain) msg = "на камни";
-	    else if (sect == .tables.sector_table.desert) msg = "в песок";
+	    else if (sect == .tables.sector_table.hills)
+		msg = .List().add("в траву", "на склон холма", "на поросшую травой землю").random();
+	    else if (sect == .tables.sector_table.field)
+		msg = .List().add("в луговую траву", "в цветы и траву", "на поросшую травой землю").random();
+	    else if (sect == .tables.sector_table.forest)
+		msg = .List().add("в траву", "в лесной мох", "на влажную лесную землю").random();
+	    else if (sect == .tables.sector_table.mountain) 
+		msg = .List().add("на камни", "на сухую горную землю").random();
+	    else if (sect == .tables.sector_table.desert) 
+		msg = .List().add("в песок", "на потрескавшуюся от засухи землю").random();
 	    else if (sect == .tables.sector_table.air) msg = "в воздух";
 	}   
 	return msg;
@@ -37,14 +92,10 @@
 
     // Determine if room has puddles of liquid: harder to dirt, louder to sneak by
     .tmp.room.hasPuddles = function(room) {
-	var sect;
-	if (room != null) sect = room.sector_type;  
-	else return false;
+	if (room == null) return false;
 	var puddle; puddle = room.get_obj_vnum(75);
     
-	return ((room.isOutside() && .sky >= 2) ||
-		(room.isWater()) ||
-		(sect != .tables.sector_table.air && puddle != null) );
+	return (room.isWater() || puddle != null);
     };
 
     // Determine if ch can move vict (or themselves): from_room -> to_room
@@ -132,6 +183,22 @@
 	}
     
 	return true;
+    };
+    
+    // Find room below the one in the air
+    .tmp.room.findBelow = function(room) {
+	/*
+	if (room == null) return;
+	var target; target = room;
+	var count; count = 0;
+	for (;;) {
+	    if (room.down == null)
+		return target;
+	    else {
+		count = count + 1;
+		target = room.down;
+	    }
+	}   */ 
     };
 
 })

@@ -1,0 +1,581 @@
+.apply(function() {
+    if (.tmp.mob == null) .tmp.mob = .Map();
+
+    ///////////////////////////////////////////////////////////////////////////
+    ///////////////////////// SERVICE ARCHITECTURE ////////////////////////////
+    ///////////////////////////////////////////////////////////////////////////
+    // (1) findServicers: list room mobs with service behaviors, parse argument
+    // |--- canServe: check client conditions, check if mob can see client
+    // IF NO ARGUMENT: visualize services for all available servicers
+    // |--- getServices: behaviors/services --> .Array with .Maps
+    // |--- listServices: visualize with adjusted prices
+    //    |--- .tmp.currency.adjustPrice: shows different prices for druids etc.
+    // IF ARGUMENT: filter the list, find specific servicer, return service map
+    // (2) locateService: return service .Map or null, visualize servicer's errors
+    // |--- match argument with each service in each servicer's getServices
+    // |--- if service target is object
+    //     |--- find object, check can_see, zero cost, nodrop
+    // |--- canPerformService: various last minute checks
+    //    |--- check if service can be rendered to NPCs (npc_ok)
+    //    |--- IF SPELL: check for mob mana, battlerager client, .Spell(service.spell).checkActors
+    //    |--- .tmp.currency.canAfford for client (or client.master, if npc_ok)
+    // |--- estimateService: dynamic object price + .tmp.currency.adjustPrice
+    // (3) doService: final checks, service process, payment, resource spending
+    // |--- request verbal confirmation for services with dynamic prices
+    // |--- IF SPELL: cast spell, spend mana
+    // |--- IF NOT SPELL: .tmp.mob.services[service.name](mob, client, service)
+    // |--- pay money/qp, add waitstate, DONE!
+    //    |--- hagglePrice: adjust final payment price if possible
+
+    // Returns a list of servicers in the current room if there's an argument
+    // Otherwise makes them list services
+    .tmp.mob.findServicers = function(client, argument) {
+	var servicers; servicers = .List();
+	for (mob in client.in_room.ppl.sub(client))
+	    if (.tmp.mob.isServicer(mob) && .tmp.mob.canServe(mob, client))
+		servicers.push_back(mob);
+	
+	if (servicers.size() <= 0) {
+	    client.act("Здесь нет никого, кто предоставляет платные услуги.");
+	    return null;
+	}
+	// When ch requests services w/o argument, all servicers will list services
+	else if (argument == "") {
+	    for (s in servicers) {
+		.tmp.mob.listServices(s, client);
+		if (s.hasOccupation("healer")) // trigger healer list for lessons
+		    s.trigger("Heal", client, argument);
+	    }
+	    if (.Skill("haggle").usable(client)) // visualize potential haggle
+		client.act("Тебе доступно умение {hh694торговли{x -- ты попробуешь сбить цену в момент покупки.");
+
+	    return null;
+	}
+	
+	return servicers;
+    };
+
+    // Check if the client is eligible for paid services (heal etc.)
+    .tmp.mob.canServe = function(mob, client) {
+	if (!.tmp.mob.canActAmbient(mob)) {
+	    client.act("Кажется, %1$C3 сейчас не до бизнеса, %1$P1 не смо%1$nжет|гут тебе помочь.", mob);
+	    return false;
+	}
+	
+	if (!.tmp.mob.canSpeak(mob)) {
+	    client.act("Похоже, %1$C1 не мо%1$nжет|гут произнести ни слова.", mob);
+	    return false;		    
+	}
+	
+	var say; say = "";
+	if (!mob.can_see_mob(client))
+	    say = "Я не обслуживаю тех, кого не могу разглядеть.";
+	else if (!client.is_npc() && client.charmed)
+	    say = "Я не обслуживаю игроков по чьему-то принуждению.";	
+	else if (client.dead)
+	    say = "Да по тебе уже могила плачет!";
+	else if (client.is_npc() && client.master == null) {
+	    if (client.pc != null)
+		say = "Сначала вернись в свое собственное тело.";
+	    else
+		say = "Увы, здесь тебя не обслужат.";             
+	}
+	else if (!client.is_npc() && .tmp.player.ghost(client)) // GHOST
+	    say = "Сначала заново обрети плоть -- я не работаю с призраками.";
+	if (say != "") {
+	    mob.say(say);
+	    return false;
+	}
+	return true;
+    };
+    
+    // Compose a list of all services a mob can perform
+    .tmp.mob.getServices = function(mob) {
+	var behaviors; behaviors = .List();
+	behaviors = mob.pIndexData.behaviors;
+	// Sanity checks: mob is dead or doesn't have [service] behaviors
+	// TO-DO: refactor this to identify service behaviors faster
+	if (!.tmp.mob.valid(mob) || behaviors.size() <= 0 ||
+	    (!behaviors.has("healer") && 
+	     !behaviors.has("blacksmith") &&
+	     !behaviors.has("sage") &&
+	     !behaviors.has("enchanter")))
+	    return null;
+
+	var mob_services, all_services, service;
+	mob_services = .List(); all_services = .Array(); service = .Map();
+	all_services = .config("behaviors/services");
+	
+	for (s in all_services.keys) {
+	    for (b in behaviors) {
+		if (all_services[s].behaviors.contains(b)) {
+		    service = .Map();
+		    service.name = all_services[s].name;
+		    service.nameRus = all_services[s].nameRus;
+		    service.nameUkr = all_services[s].nameUkr;
+		    // Default prices, discounts applied later
+		    service.price_gold = all_services[s].price_gold;
+		    service.price_qp = all_services[s].price_qp;
+		    service.spell = all_services[s].spell;
+		    service.behaviors = all_services[s].behaviors;
+		    service.target = all_services[s].target;
+		    service.npc_ok = all_services[s].npc_ok;
+		    service.no_target = false;
+		    mob_services.push_back(service);
+		    service = null;
+		}
+	    }
+	}
+	return mob_services;
+    };
+
+    // List (say) all available services
+    .tmp.mob.listServices = function(mob, client) {
+	if (!.tmp.mob.valid(mob)) return; // sanity check
+	var services; services = .List();
+	services = .tmp.mob.getServices(mob);
+	if (services == null || services.size() <= 0) return;
+	
+	client.act("Ты обращаешься за услугами к %C3.", mob);
+	client.rvecho(mob, "%1$^C1 обраща%1$nется|ются за услугами к %2$C3.", client, mob);
+	mob.act("%1$^C1 обраща%1$nется|ются к тебе за услугами.", client, mob);
+	
+	mob.say("Я предоставляю такие услуги:");
+	for (s in services) {
+	    var msg; msg = "";
+	    msg = .fmt("   {y{leservice %-17s{lrуслуга %-18N1{lx{x", s.name, s.nameRus);
+	    /*
+	    if (s.behaviors.contains("blacksmith"))
+		msg = .fmt("   {y{lesmith %-20s{lrкузнец %-20N4{lx{x", s.name, s.nameRus);*/
+	    
+	    var price_gold, price_qp;
+	    var prices; prices = .List();
+	    // Show prices adjusted for druids, Fili, etc. but don't haggle yet	
+	    // Dynamic price -- usually for object services
+	    if (s.price_gold < 0)
+		prices.push_back(.fmt("{Yдоговорная цена{x"));
+	    else if (s.price_gold > 0) {
+		price_gold = .tmp.currency.adjustPrice(client, mob, s.price_gold);
+		prices.push_back(.fmt("{Y%d{x золотых", price_gold));
+	    }
+	    if (s.price_qp < 0)
+		prices.push_back(.fmt("{Cдоговорная цена в qp{x"));
+	    else if (s.price_qp > 0) {
+		price_qp = .tmp.currency.adjustPrice(client, mob, s.price_qp);
+		prices.push_back(.fmt("{C%d{x qp", price_qp));
+	    }
+	    if (prices.size() > 0)
+		msg = msg + .tmp.system.concatComma(prices);
+
+	    client.act(msg);
+	    client.echoMaster(msg);
+	}
+    };
+
+    // Match argument to services provided by mob.
+    // Check everything, visualize servicer's errors, return service .Map or null, 
+    .tmp.mob.locateService = function(mob, client, argument) {
+	var arg, service, target;
+
+	if (argument != "") {
+	    arg = argument.getOneArgument().toLower();
+	    target = argument.cutOneArgument().toLower();
+	} else return null;
+	    
+	// Find the correct service first by argument
+	var services; services = .List();
+	services = .tmp.mob.getServices(mob);
+	for (s in services) {
+	    if (arg.is_name(s.name) ||
+		arg.is_name(s.nameRus.ruscase(1)) ||
+		arg.is_name(s.nameRus.ruscase(2)) ||
+		arg.is_name(s.nameRus.ruscase(3)) ||
+		arg.is_name(s.nameRus.ruscase(4)) ||
+		arg.is_name(s.nameRus.ruscase(5)) ||
+		arg.is_name(s.nameRus.ruscase(6)) ||
+		arg.is_name(s.nameUkr.ruscase(1)) ||
+		arg.is_name(s.nameUkr.ruscase(2)) ||
+		arg.is_name(s.nameUkr.ruscase(3)) ||
+		arg.is_name(s.nameUkr.ruscase(4)) ||
+		arg.is_name(s.nameUkr.ruscase(5)) ||
+		arg.is_name(s.nameUkr.ruscase(6))) {
+		service = .Map();
+		service = s;
+		break;
+	    }
+	}		
+	
+	if (service == null) return null;
+	
+	if (service.target == "object") {
+	    // REPAIR ALL: 
+	    // Check all items in eq for errors (full condition etc.)
+	    // then add serviceable items into a list.		    
+	    if (service.name == "repair" && .arg_is_strict(target, "all")) {
+		var repair_list; repair_list = .List();
+		for (item in client.equipment) {
+		    // Make sure servicer can see an item
+		    if (!mob.can_see_obj(item)) continue;
+		    service.object = item; // use this as a temporary parameter
+		    // Don't estimate services yet, just check for conditions
+		    if (.tmp.mob.canPerformService(mob, client, service) != "")
+			continue;
+		    
+		    repair_list.push_back(item);
+		}
+		// Don't check for empty list here, let's do it in core function
+		service.repair_list = repair_list;
+		service.object = null; // clear, so it won't trigger stuff later
+		return service;
+	    }
+	    // Locate the object for the service and check if servicer can see it.
+	    // In case of errors pass on service.no_target, visualize in core command
+	    else { 
+		if (target == "") {
+		    mob.say("Для какого именно предмета тебе нужна услуга {1{G%N2?{2", service.nameRus);
+		    service.no_target = true;
+		    return service;		        
+		}
+		var object; object = client.get_obj_carry(target, mob);
+		if (object == null) {
+		    mob.say("Я не вижу у тебя предмета под названием {1{G%s.{x{2", target);
+		    service.no_target = true;
+		    return service;
+		}
+
+		// Record the target object into the service map
+		service.object = object;
+	    } // Don't save service object for "repair all"
+	}
+	
+	if (service.target == "string") {
+	    if (target == "") {
+		mob.say("На что именно ты хочешь использовать услугу {1{G%N2?{2 Укажи цель.", service.nameRus);
+		service.no_target = true;
+		return service;		        
+	    }
+	    service.argument = target;
+	}
+	
+	// Player can bring their own horseshoes: check if blacksmith can see them
+	if (service.name == "horseshoe" && target != "") {
+	    var horseshoe; horseshoe = client.get_obj_carry(target, mob);
+	    if (horseshoe == null) {
+		mob.say("Я не вижу у тебя подков под названием {1{G%s.{x{2", target);
+		service.no_target = true;
+		return service;
+	    }
+	    // Don't check the object for validity yet
+	    service.object = horseshoe;
+	}
+	// Adjust prices for the service
+	var s; s = .Map();
+	s = .tmp.mob.estimateService(mob, client, service);
+	service = s;
+	
+	return service;
+    };
+	
+    // Finally adjust prices for druids etc. and rewrite service price record
+    // For dynamic object services (repair etc.) add new service price in silver
+    .tmp.mob.estimateService = function(mob, client, service) {
+	// All dynamic prices: repair <obj>, repair all, horseshoe, horseshoe <obj>
+	if (service.price_gold == -1) {
+	    if (service.price_silver == null) service.price_silver = 0;
+	    
+	    // When repairing all, do a bulk estimate on the list, adjust only once.
+	    if (service.repair_list != null && service.repair_list.size() > 0) {
+		if (service.price_silver == null) service.price_silver = 0;
+		for (item in service.repair_list) {
+		    if (!.tmp.object.valid(item)) continue; // sanity check
+		    service.price_silver = service.price_silver + .max(1, item.level)*10*100;
+		    service.price_silver = service.price_silver + 
+			item.cost*(100 - item.condition)/100;		        
+		}  
+	    }			
+	    else if (service.object != null) {
+		// For individual dynamic object services calculate the actual price.
+		// Convert into silver for small fraction calcs, then process later.
+		service.price_silver = service.price_silver + .max(1, service.object.level)*5*100;
+		service.price_silver = service.price_silver + 
+		    service.object.cost*(100 - service.object.condition)/100;
+	    }
+	    // Players can bring their own horseshoes: add up prices in this case
+	    if (service.name == "horseshoe") // Reducing price compared to old code
+		service.price_silver = service.price_silver + client.level*10*100;
+	    
+	    // Adjust prices in silver vs. race, clan etc.
+	    service.price_silver = .tmp.currency.adjustPrice(
+		client, mob, service.price_silver);
+		    
+	    // Record time: auto-cancel confirmations after 5mins
+	    service.timestamp = .current_time;            
+	}
+	// Adjust prices in gold vs. race, clan etc.
+	else service.price_gold = .tmp.currency.adjustPrice(
+	    client, mob, service.price_gold);
+
+	service.price_qp = .tmp.currency.adjustPrice(client, mob, service.price_qp);
+	
+	return service;
+    };
+    
+    // Various eligibility checks for the service
+    // Input service as a .Map() with all fields defined earlier
+    // Return non-empty msg for errors, visualize elsewhere
+    .tmp.mob.canPerformService = function(mob, client, service) {
+	var msg; msg = "";
+	var price_gold, price_qp; price_gold = price_qp = 0;
+	var can_afford_gold, can_afford_qp; 
+	can_afford_gold = can_afford_qp = true;
+	
+	if (!.tmp.mob.canServe(mob, client) || service == null) {
+	    msg = "Что-то пошло не так, попробуй еще раз.";
+	    return msg; // sanity check
+	}
+
+	// NPCs are eligible only for healer services
+	if (client.is_npc() && !service.npc_ok)
+	    msg = msg + "Эта услуга доступна только для игроков.";
+	if (service.name == "locate") {
+	    if (client.getClan() == "BATTLERAGER" ||
+		(client.is_npc() && client.master != null && client.master.getClan() == "BATTLERAGER"))
+		msg = msg + .fmt("Я опасаюсь прогневать воинов Клана Ярости своими заклинаниями.");	
+	}
+	else if (service.name == "horseshoe") {
+	    if (!client.hasWearloc("hooves"))
+		msg = msg + "Ну и куда же тебе подковки приделать?";
+	    else if (service.object != null) {
+		if (!.tmp.object.hasWearloc(service.object, "hooves"))
+		    msg = msg + .fmt("Я не смогу приделать {1%1$O4{2 к твоим копытам.", 
+			service.object);
+		else if (service.object.worn)
+		    msg = msg + .fmt("Я не смогу изменить {1%1$O4{2 на тебе -- принеси мне новые подковы.", 
+			service.object);
+		else if (service.object.material.metal && client.profession.name == "druid")
+		    msg = msg + "Тебе нельзя носить металлические вещи.";
+		else msg = .tmp.mob.wearCheck(client, service.object);
+	    }
+	    else if (client.profession.name == "druid")
+		msg = msg + "Тебе нельзя носить металлические вещи, принеси мне подковы из другого материала.";
+	}
+	if (msg != "") return msg;
+	
+	if (service.object != null) {
+	    if (!.tmp.object.valid(service.object))
+		msg = msg + "Этому предмету уже ничего не поможет.";
+	    else if (service.object.level > mob.level)
+		msg = msg + "Этот предмет мне не по силам, найди кого-то опытнее меня.";
+	    else if (service.name != "identify" && service.object.cost == 0) { // Can't service an object with zero cost
+		msg = msg + .fmt("{1%1$^O1{2 ничего не стоит, я не смогу услугу %2$N4 на вещи без стоимости.", 
+		    service.object, service.nameRus);
+		msg = msg + .fmt("{/Ты случайно не из ямы для пожертвований %1$P2 вытащил%2$Gо||а?", 
+		    service.object, client);
+		msg = msg + .fmt("{/{DЕсли нет, попробуй сообщить Богам об ошибке.{x");
+	    }
+	    else if (service.name != "identify" && !client.can_drop_obj(service.object) && !service.object.worn) {
+		msg = msg + .fmt("Ты не сможешь передать мне {1%1$O4{2 для услуги %2$N2.", 
+		    object, service.nameRus);
+		msg = msg + .fmt("{/Или надень, или избавь эту вещь от проклятия.");
+	    }
+	    else if (service.name == "repair") {
+		if (service.object.item_type != .tables.item_table.armor &&
+		    service.object.item_type != .tables.item_table.weapon &&
+		    !mob.pIndexData.behaviors.has("enchanter")) {
+		    msg = msg + "Я могу ремонтировать только броню и оружие.";
+		    msg = msg + .fmt("{/Починить {1%1$O4{2 можно только магией у чародеев.", 
+			service.object);
+		}
+		else if (service.object.condition == 100)
+		    msg = msg + .fmt("{1%1$^O1{2 не нужда%1$nется|ются в %2$N6.", 
+			service.object, service.nameRus);				
+	    }
+	}
+	if (msg != "") return msg;
+	    
+	// If the service requires casting, check for mana and other limitations
+	if (service.spell != null && service.spell != "") {
+	    // No casts on battleragers
+	    if (client.getClan() == "BATTLERAGER" ||
+		(client.is_npc() && client.master != null && client.master.getClan() == "BATTLERAGER"))
+		msg = msg + .fmt("Я опасаюсь прогневать воинов Клана Ярости своими заклинаниями.");	
+	    else if (mob.mana < .Skill(service.spell).mana(mob))
+		msg = msg + .fmt("Погоди, %C1, дай мне пару минут перевести дух и восстановить энергию.", client);
+	    else if (service.target == "object") try {
+		// Most spells have helpers to check for eligibility
+		// Try finding an eligibility helper, then visualize the results
+		msg = .Spell(service.spell).checkObject(service.object);
+	    } catch (e);
+	    else try {
+		// Most spells have helpers to check for eligibility
+		// Try finding an eligibility helper, then visualize the results
+		msg = .Spell(service.spell).checkActors(mob, client);
+	    } catch (e);
+	}
+	if (msg != "") return msg;
+	
+	// Check if client (or client master for NPCs) has enough resources
+	// Prices are set, estimated (for dynamic services) and adjusted earlier
+	if (client.is_npc()) {
+	    if (!.tmp.currency.canAfford(client.master, service.price_gold, "gold") ||
+		    (service.price_silver != null && 
+		     !.tmp.currency.canAfford(client.master, service.price_silver, "silver")))
+		can_afford_gold = false;   
+	    if (!.tmp.currency.canAfford(client.master, service.price_qp, "qp"))
+		can_afford_qp = false;     
+	    
+	    if (!can_afford_gold || !can_afford_qp)
+		msg = msg + .fmt("У тво%1$Gего|его|ей|их хозя%1$Gина|ина|йки|ев не хватит %2$gденег|квесточков на эту услугу, %3$C1.", 
+		    client.master, can_afford_gold, client);
+	}
+	else {
+	    if (!.tmp.currency.canAfford(client, service.price_gold, "gold") ||
+		    (service.price_silver != null && 
+		     !.tmp.currency.canAfford(client, service.price_silver, "silver")))
+		can_afford_gold = false;   
+	    if (!.tmp.currency.canAfford(client, service.price_qp, "qp"))
+		can_afford_qp = false;    
+	    
+	    if (!can_afford_gold || !can_afford_qp)
+		msg = msg + .fmt("У тебя не хватит %1$gденег|квесточков на эту услугу, %2$C1.", 
+		    can_afford_gold, client);
+	}  
+	
+	return msg;
+    };
+
+    // Returns new haggled price in silver, if the client is capable of haggling
+    .tmp.mob.hagglePrice = function(client, mob, old_price) {
+	var new_price; new_price = old_price;
+	    
+	var roll; roll = 0;
+	if (.tmp.religion.hasPatron(client, "fili", true)) roll = 100;
+	else if (.Skill("haggle").usable(client))
+	    roll = .number_range(
+		.Skill("haggle").effective(client)/2, .Skill("haggle").effective(client));
+	
+	// TO-DO: (karma) add Society Path bonus here
+	if (roll == 0) return new_price;
+	else if (client.profession.name == "thief")
+	    roll = roll + 5; // extra bonus for thieves
+	roll = .urange(1, roll, 99);
+	
+	// Haggle is successful or Fili's blessing
+	if (.tmp.chance(roll, client)) {
+	    new_price = old_price - .div(old_price * roll, 100);
+	    new_price = .max(old_price/2, new_price);
+	    client.act("Ты отчаянно торгуешься с %1$C5, сбивая цену на %2$s.",
+		mob, .tmp.currency.printMoney(old_price - new_price));
+	    client.recho("%1$^C1 отчаянно торгу%1$nется|ются с %2$C5 -- %1$P3 палец в рот не клади.",
+		client, mob);
+	    if (.Skill("haggle").usable(client))
+		.Skill("haggle").improve(client, true);
+	}
+	else {
+	    client.act("Ты пытаешься торговаться с %1$C5, но %1$P2 на мякине не проведешь.", mob);
+	    client.recho("%1$^C1 пытае%1$nется|ются торговаться с %2$C5, но %2$P2 на мякине не проведешь.",
+		client, mob);		    
+	}
+	return new_price;
+    };
+	
+    // Mob performs service action for client: casts a spell or executes action
+    // Input service as a .Map() with all fields defined at the command level
+    .tmp.mob.doService = function(mob, client, service) {
+	client.act("Ты обращаешься за услугой к %C3.", mob);
+	client.rvecho(mob, "%1$^C1 обраща%1$nется|ются за услугой к %2$C3.", client, mob);
+	mob.act("%1$^C1 обраща%1$nется|ются к тебе за услугой.", client, mob);
+	
+	// For dynamic object services, mob calls out the price in estimateService
+	// Now let's confirm this price with the player
+	if (service.price_silver != null) {
+	    // If no confirmation requested yet, record service in mob array
+	    if (mob.serviceEstimate == null) mob.serviceEstimate = .Array();
+	    if (mob.serviceEstimate[client.name] == null) {
+		mob.rvecho(client, "%1$^C1 что-то говор%1$nит|ят %2$C3.", mob, client);
+		if (service.name == "repair" && service.repair_list != null) {
+		    mob.psay(client, "Я могу отремонтировать тебе {1{C%1$d{x{2 предмет%1$I|а|ов за %2$s.",
+			service.repair_list.size(), .tmp.currency.printMoney(service.price_silver));
+		}
+		else if (service.object != null)
+		    mob.psay(client, "Исходя из состояния и уровня {1%1$O2{2, услуга %2$N2 на %1$P4 обойдется в %3$s.",
+			service.object, service.nameRus, .tmp.currency.printMoney(service.price_silver));
+		else mob.psay(client, "Исходя из твоего уровня, услуга %1$N2 обойдется в %2$s.",
+			service.nameRus, .tmp.currency.printMoney(service.price_silver));
+		mob.psay(client, "Ты соглас%1$Gен|ен|на? Надо {1{y{hcсказать да{x{2 или просто запросить услугу еще раз.", client);
+		mob.psay(client, "Чтобы отменить, надо {1{y{hcсказать нет{x{2 -- или я просто забуду об этом через 5 минут.");
+		mob.serviceEstimate[client.name] = service;
+		return false;
+	    }
+	    else {
+		// One final service check
+		if (.tmp.mob.canPerformService(mob, client, service) != "") {
+		    mob.say(msg);
+		    return false;
+		}
+		mob.serviceEstimate[client.name] = null;
+	    }
+	}
+	
+	// Service action is controlled via "spell" parameter in service map
+	// If the spell is required, mob casts spell, mana is deducted
+	if (service.spell != null && service.spell != "") {
+	    var sk; sk = .Skill(service.spell); if (sk == null) return;
+	    if (service.behaviors.contains("healer")) {
+		mob.recho("%1$^C1 мол%1$nится|ятся %2$N3.", mob, mob.godName);
+		mob.trigger("Heal", client, service.name);
+	    }
+	    // TO-DO: Refactor with new spell group messages
+	    else mob.recho("%1$^C1 бормоч%1$nет|ут '%2$s'.", 
+		mob, sk.name);
+	    
+	    // TO-DO (RUFFINA): add object targets to ch.spell
+	    if (service.target == "object" && service.object != null) {
+		if (service.name == "identify") {
+		    var hadDetectMagic; hadDetectMagic = false;
+		    if (!(client.detection & .tables.detect_flags.magic))
+			client.detection = .set_bit(client.detection, .tables.detect_flags.magic);
+		    else hadDetectMagic = true;
+		    sk.apply(client, service.object, client.modifyLevel);
+		    if (!hadDetectMagic)
+			client.detection = .unset_bit(client.detection, .tables.detect_flags.magic);
+		}
+		else if (service.name == "locate")
+		    sk.apply(client, service.argument, client.modifyLevel);
+		else sk.apply(mob, service.object, mob.modifyLevel + 10);
+	    }
+	    else sk.apply(mob, client, mob.modifyLevel + 10);
+		//mob.spell(service.spell, mob.modifyLevel + 10, client, false);
+	    
+	    mob.mana = .min(0, mob.mana - sk.mana(mob));
+	    mob.wait = mob.wait + sk.beats(mob);
+	}
+	// If there's no spell, pick the service routine from the services array
+	else {
+	    .tmp.mob.services[service.name](mob, client, service);
+	    mob.wait = mob.wait + .tmp.time.seconds(1);
+	}
+	
+	client.wait = client.wait + .tmp.time.seconds(1);
+
+	// Finish and pay. Prices already adjusted in estimateService
+	if (service.price_silver != null && service.price_silver > 0) {
+	    var new_price;
+	    new_price = .tmp.mob.hagglePrice(client, mob, service.price_silver);
+	    .tmp.currency.pay(client, new_price, true); //в серебре
+	    .merchant_bank = .merchant_bank + new_price / 100;
+	    .saveConfig();
+	}
+	else if (service.price_gold > 0) {
+	    var new_price; // convert into silver and haggle
+	    new_price = .tmp.mob.hagglePrice(client, mob, service.price_gold * 100);
+	    .tmp.currency.pay(client, new_price, true); //в серебре
+	    .merchant_bank = .merchant_bank + new_price / 100;
+	    .saveConfig();
+	}
+	if (service.price_qp > 0)
+	    .tmp.currency.payQP(client, service.price_qp, true);
+	    
+	return true;
+    };
+})

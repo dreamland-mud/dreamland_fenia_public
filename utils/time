@@ -54,7 +54,7 @@
 	else
 	    msg = msg + .fmt("%1$d мину%1$Iту|ты|т", time);    
 	    
-	msg = msg + " реального времени";
+	//msg = msg + " реального времени";
 	return msg;		
     };
     
@@ -62,6 +62,8 @@
     .tmp.time.seconds = function(duration) {
 	return duration * 4;		
     };
+
+    .tmp.time.minutes = null;
     
     // These helper functions operate in ticks -- for timers and affects.
     .tmp.time.hours = function(duration) {

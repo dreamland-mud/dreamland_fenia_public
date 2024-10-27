@@ -2,16 +2,24 @@
     if (.tmp.currency == null)
 	.tmp.currency = .Map();
 
-    this = .tmp.currency;
-
-    // These helpers are agnostic of .tmp.currency -- used elsewhere
-    // Calculate if character can afford to pay an amount sum in silver
-    canAfford = function(ch, amount) {
-	return (ch.gold * 100 + ch.silver >= amount);    
+    //////////////////////////////////////////////////
+    ////// Main helpers for currency operations //////
+    ////// Support gold, silver and qp          //////
+    //////////////////////////////////////////////////
+    
+    // Calculate if character can afford to pay an amount sum in <currency>
+    .tmp.currency.canAfford = function(ch, amount, currency) {
+	if (currency == "gold")
+	    return (ch.gold + ch.silver / 100 >= amount); 
+	else if (currency == "qp")
+	    return (ch.questpoints >= amount); 
+	else return (ch.gold * 100 + ch.silver >= amount); // default is silver
     };
 
-    // Adjust prices based on newbie, class and religion
-    adjustPrice = function(ch, dealer, amount) {
+    // Adjust prices for service lists
+    // Druids pay 2x more, Fili followers pay 4x less
+    // Clan servicers charge 2x less to their clanmates
+    .tmp.currency.adjustPrice = function(ch, servicer, amount) {
 	if (ch.is_npc()) return amount;
 	if (ch.newbie) amount = amount / 10;
 	else {
@@ -19,36 +27,40 @@
 		amount = amount * 2;
 	    else if (.tmp.religion.hasPatron(ch, "fili", false))
 		amount = amount / 4;
-	    else if (dealer.getClan().toLower() != "none" &&
-		     dealer.getClan().toLower() == ch.getClan().toLower())
+	    else if (servicer.getClan().toLower() != "none" &&
+		     servicer.getClan().toLower() == ch.getClan().toLower())
 		amount = amount / 2;
 	}
 	return amount;
     };
     
     // Receive an item as a reward
-    gainItem = function(ch, vnum, verbose) {
+    .tmp.currency.gainItem = function(ch, vnum, verbose) {
 	var obj; obj = .get_obj_index(vnum).create().obj_to_char(ch);
 	if (verbose)
-	    ch.act("{yВ награду ты получаешь {C%1$O4{y, ништяк!{x", obj);        
+	    ch.act("{yВ награду ты получаешь {C%1$O4{y, ништяк!{x", obj);
+	return;
     };
     
-    gainXP = function(ch, amount, verbose) {
+    // Receive exp as a reward
+    .tmp.currency.gainXP = function(ch, amount, verbose) {
 	if (verbose)
 	    ch.act("{yТы получаешь {G%1$d {yочков опыта!{x", amount);
 	ch.gainExp(amount);
+	return;
     };
 
     // Give character qp, e.g. as a quest reward
-    gainQP = function(ch, amount, verbose) {
+    .tmp.currency.gainQP = function(ch, amount, verbose) {
 	ch.questpoints = ch.questpoints + amount;
 	if (verbose)
 	    ch.act("{yВ награду ты получаешь {C%1$d {y{leqp{lrквестовых единиц{x{y, уииии!{x",
-		.abs(amount));	    
+		.abs(amount));
+	return;
     };
     
     // Characters pays (loses) amount in qp, e.g. as a payment for services
-    payQP = function(ch, amount, verbose) {
+    .tmp.currency.payQP = function(ch, amount, verbose) {
 	if (ch.questpoints >= amount) {
 	    ch.questpoints = ch.questpoints - amount;
 	    if (verbose)
@@ -58,30 +70,47 @@
 	else if (verbose)
 	    ch.act("{yУ тебя всего {c%1$d {y{leqp{lrквестовых единиц{x{y -- а требуется {C%2$d{y.{x",
 		ch.questpoints, .abs(amount));
+	return;
     };
-	
-    // Pay amount in gold/silver or give character money
-    pay = function(ch, amount, verbose) {
-	// Use negative amount to add/deposit gold to character
-	var silver_amount, gold_amount, silver_msg, gold_msg;
+    
+    // Input amount in silver, outputs formatted "X gold and Y silver"
+    .tmp.currency.printMoney = function(amount) {
+	if (amount == null || amount < 0) amount = 0; // sanity check;
+	var msg; msg = "";
+	var silver_amount, gold_amount;
 	gold_amount = amount / 100;
 	silver_amount = amount % 100;
-	silver_msg = ''; gold_msg = '';
-	if (amount <= 0) {
-	    ch.silver = ch.silver - silver_amount;
-	    ch.gold = ch.gold - gold_amount;
-	    if (verbose) {
-		if (gold_amount != 0)
-		    gold_msg = .fmt('{1{Y%1$d{2 золот%1$Iой|ых|ых', .abs(gold_amount));
-		if (silver_amount != 0) {
-		    silver_msg = .fmt('{1{W%1$d{2 серебрянн%1$Iую|ых|ых моне%1$Iту|ты|т', .abs(silver_amount));
-		    if (gold_amount !=0 ) silver_msg = .fmt(' и %s', silver_msg);
-		}
-		ch.act("{yТвой кошелек становится тяжелее на %1$s%2$s.{x", gold_msg, silver_msg);
-	    }
-	    return;
+	if (gold_amount != 0) {
+	    msg = msg + .fmt('{1{Y%1$d{2 золот%1$Iой|ых|ых', .abs(gold_amount));
+	    if (silver_amount != 0) msg = msg + .fmt(" и ");
 	}
-	if (.tmp.currency.canAfford(ch, amount)) {
+	if (silver_amount != 0)
+	    msg = msg + .fmt('{1{W%1$d{2 серебрянн%1$Iую|ых|ых моне%1$Iту|ты|т', .abs(silver_amount));
+	return msg;
+    };
+    
+    // Give character <amount> in silver, e.g. as a quest reward 
+    .tmp.currency.gainMoney = function(ch, amount, verbose) {
+	var silver_amount, gold_amount;
+	gold_amount = amount / 100;
+	silver_amount = amount % 100;
+	
+	ch.silver = ch.silver + silver_amount;
+	ch.gold = ch.gold + gold_amount;
+	
+	if (verbose)
+	    ch.act("{yТвой кошелек становится тяжелее на %1$s.{x",
+		.tmp.currency.printMoney(amount));
+	return;
+    };
+    
+    // Pay amount in gold + silver
+    .tmp.currency.pay = function(ch, amount, verbose) {
+	var silver_amount, gold_amount;
+	gold_amount = amount / 100;
+	silver_amount = amount % 100;
+
+	if (.tmp.currency.canAfford(ch, amount, "silver")) {
 	    var remains; remains = amount;
 	    
 	    // pay in silver first
@@ -96,23 +125,18 @@
 		ch.silver = ch.silver + (100 - remains); 
 	    }
 
-	    if (verbose) {
-		if (gold_amount != 0) {
-		    gold_msg = .fmt('{1{Y%1$d{2 золот%1$Iой|ых|ых', .abs(gold_amount));
-		}
-		if (silver_amount != 0) {
-		    silver_msg = .fmt('{1{W%1$d{2 серебрянн%1$Iую|ых|ых моне%1$Iту|ты|т', .abs(silver_amount));
-		    if (gold_amount != 0) silver_msg = .fmt(' и %s', silver_msg);
-		}
-		ch.act("{yТы вздыхаешь, выплачивая %1$s%2$s.{x", gold_msg, silver_msg);
-	    }
+	    if (verbose)
+		ch.act("{yТы вздыхаешь, выплачивая %1$s.{x",
+		    .tmp.currency.printMoney(amount));
 	    return;	 	        
 	}
+	return;
     };
     
     /*
      * base class for currency
      */
+    this = .tmp.currency;
     Currency = function(name, aliases, format, whom) {
 	this = .Map();
 	this.name = name;       // symbolic name

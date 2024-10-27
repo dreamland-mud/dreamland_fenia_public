@@ -5,17 +5,60 @@
     ////////////////////// MATERIALS ////////////////////////////
     /////////////////////////////////////////////////////////////
     
-    // TO-DO (Ruffina): move this to fenia API
     .tmp.object.indestructible = function(obj) {
-	return ((obj.item_type == .tables.item_table.pc_corpse) ||
-		(obj.extra_flags & .tables.extra_flags.nopurge) ||
-		(obj.material.indestructible) ||				
-		(obj.timer <= 0 && obj.owner != "") ||
-		(obj.personal != null) ||
-		(obj.pIndexData.limit > -1) ||
-		(obj.material.hardness <= 0));
+	return (!.tmp.object.valid(obj)
+		|| obj.extra_flags & .tables.extra_flags.nopurge
+		|| obj.personal != null);
+    };
+    
+    // Main logic for items to sink ON DROP -- persistent sinking on room update
+    // is covered in C++. If not destroyed on drop, object gets assigned sinking
+    // "timer" and eventually sinks, if possible.
+    
+    // NEVER SINK: nopurge, personal, boats, portals, PC corpses
+    // NEVER SINK: water_stand -- items that persist long descr when on water
+    // e.g. "XXX hovers here" instead of "XXX floats on water" (supersedes materials)
+    // NEVER SINK: empty drink containers -- they'd get filled then sunk on update
+    // NEVER SINK: obj.pIndexData.props.swim.never_sinks -- "magically protected"
+    // TO-DO (RUFFINA): Add this check to update.cpp 
+    
+    // MATERIALS: obj.material.swims adds up all "floats" for all obj materials
+    // from .config("fight/material"): -1 for "material always sinks", 1 for
+    // "never sinks", 0 for "sometimes" (loosely determined by rho and logic)
+    // If the sum of "floats" is < 0, then obj.material.swims == 1 (destroy on drop)
+    // If the sum of "floats" is > 0, then obj.material.swims == 2 (don't destroy)
+    // If obj.material.swims == 0, don't destroy, will get sunk eventually
+    // TO-DO (Taiphoen): Improve the logic based on weight/rho (heaviest material)
+    // TO-DO (Taiphoen): add onInvisible to sunk objects, dive command to re-obtaian
+    .tmp.object.canSink = function(obj) {
+	if (.tmp.object.indestructible(obj)) return false;
+	if (obj.material.swims == 2) return false;
+	if (obj.item_type == .tables.item_table.boat
+	    || obj.item_type == .tables.item_table.portal
+	    || obj.item_type == .tables.item_table.pc_corpse) return false;
+	if (obj.extra_flags & .tables.extra_flags.water_stand) return false;
+
+	return true;
     };
 
+    .tmp.object.canBurn = function(obj) {
+	return (!.tmp.object.indestructible(obj)
+		&& !obj.material.indestructible
+		&& !(obj.extra_flags & .tables.extra_flags.burn_proof)
+		&& obj.material.burns >= 1
+		&& obj.pIndexData.limit <= 0);
+    };	
+
+    .tmp.object.canBreak = function(obj) {
+	// Can't break permanently owned items
+	if (obj.timer <= 0 && obj.owner != "") return false;
+	return (!.tmp.object.indestructible(obj)
+		&& !obj.material.indestructible
+		&& obj.material.hardness > 0
+		&& obj.pIndexData.limit <= 0
+		&& obj.item_type != .tables.item_table.pc_corpse);
+    };
+	
     .tmp.object.isElastic = function(obj) {
 	return (obj.material.cloth || obj.material.leather);
     };
@@ -36,7 +79,14 @@
 	var material, found; found = false; 
 	for (m in obj.material.name.split(", ")) {
 	    material = .tmp.object.getMaterialConfig(m);
-	    if (material.flags.contains(flag))
+	    if (material == null) {
+		obj.getRoom().echo(
+		    .fmt("{r[{RБАГ{r]:{x {1%O1:{2 неправильная конфигурация для материала '{Y%s{x', напиши Богам.",
+			obj, m));
+		.wiznet(.fmt("[{WMATERIAL{x]: %O1 {D[%d]{x -- no config for material '{Y%s{x'",
+		    obj, obj.vnum, m));
+	    }
+	    else if (material.flags.contains(flag))
 		found = true;
 	}
 	
@@ -51,7 +101,24 @@
     .tmp.object.valid = function(obj) {
 	return (obj != null && !obj.dead && obj.condition > 0);
     };
+    
+    // Determine if object has a specific wearloc
+    // Use this instead of (obj.wear_flags & .tables.wear_flags.wear_xxx)
+    // e.g. .tmp.object.hasWearloc(obj, "hooves")
+    .tmp.object.hasWearloc = function(obj, name) {
+	var found; found = false;
+	for (w in obj.wearlocs)
+	    if (w.name == name) found = true;
+	return found;
+    };
 
+    // Determine whether an item can be dropped
+    // Use this instead of ch.can_drop_obj(obj) when there's no ch
+    .tmp.object.canDrop = function(obj) {
+	return (.tmp.object.valid(obj) &&
+		!(obj.extra_flags & .tables.extra_flags.nodrop));
+    };
+    
     // Determine whether an item can be removed if worn
     .tmp.object.canRemove = function(obj) {
 	return (.tmp.object.valid(obj) && obj.worn &&
@@ -163,6 +230,7 @@
     // cost = (10 silver * level) * (6 - tier) ^ 2 + weight
     // Example 1: tier 3, level 10 item  = 100  * 3^2 = 9 gold + weight
     // Example 2: tier 1, level 100 item = 1000 * 5^2 = 250 gold + weight
+    // TO-DO: Add market material costs to fedit material
     .tmp.object.calculateCost = function(obj, tier) {
 	if (!.tmp.object.valid(obj)) return 0;
 	// cap at 300 gold
@@ -190,7 +258,7 @@
     // Can obj1 damage obj2 upon collision?
     .tmp.object.canDamageObj = function(obj1, obj2) {
 	return (.tmp.object.valid(obj1) && .tmp.object.valid(obj2) &&
-		!.tmp.object.indestructible(obj2) &&
+		!.tmp.object.canBreak(obj2) &&
 		obj1.material.hardness > 0 &&
 		!.tmp.object.isElastic(obj1) &&
 		(.abs(obj1.material.hardness) - .abs(obj2.material.hardness) > 0));
@@ -204,7 +272,7 @@
 	if (room == null) return false;
 	if (percent == null) percent = 1;
 	
-	if (.tmp.object.indestructible(obj) || room == null) return false;
+	if (!.tmp.object.canBreak(obj) || room == null) return false;
 	// +10% damage for each point of hardness below 5, -10% for each point above
 	// quad damage to fragile materials
 	percent = percent + percent * (50 - obj.material.hardness * 10) / 100;
@@ -231,6 +299,68 @@
 	.get_char_world('Taiphoen').ptc(e);	
 	}
     };
+
+    // Spill items out of the container
+    .tmp.object.pourContainer = function(obj) {
+	if (!.tmp.object.valid(obj)) return false;
+	
+	if (obj.items.size() > 0) {
+	    var room; room = obj.getRoom();
+	    .options = .unset_bit(.options, .tables.dreamland_flags.save_objs);
+
+	    if (obj.in_obj != null) {
+		// No message here, happens inside the container
+		var parent_container; parent_container = obj.in_obj;
+		for (item in obj.items) item.obj_to_obj(parent_container);
+	    }
+	    // Inventory items pour into inventory as well.
+	    else if (obj.carried_by != null && !obj.worn) {
+		var carrier; carrier = obj.carried_by;
+		carrier.act("Содержимое %O2 вываливается тебе в инвентарь.", obj);
+		for (item in obj.items) item.obj_to_char(carrier);
+	    }
+	    // Everything else, including equipped, pours into the room
+	    else {
+		room.echo("Содержимое %O2 вываливается %s.",
+		    obj, .tmp.room.dropWhere());
+		// TO-DO (Taiphoen): Replace this with drop function
+		for (item in obj.items)
+		    .tmp.object.dropObj(null, item, false, null);				    
+	    }
+
+	    .options = .set_bit(.options, .tables.dreamland_flags.save_objs);
+	    room.saveItems();
+	    return true;
+	}
+	return false;
+    };
+    
+    // Spill liquid out of the drink container
+    .tmp.object.pourOutDrink = function(obj) {
+	if (!.tmp.object.valid(obj)
+	    || obj.item_type != .tables.item_table.drink
+	    || obj.value1 <= 0) return false;
+ 
+	var room; room = obj.getRoom(); if (room == null) return false;
+	
+	// Replacing obj.pour_out() code here and duplicating from C++ 
+	// for better handling. TO-DO: call pourOut triggers here
+	var liq; liq = .Liquid(obj.value2);
+	    
+	if (room.isWater())
+	    room.echo("Поток %N2 из %O2 выплескивается в %N4.",
+		liq.short_descr, obj, room.liquid.short_descr);
+	else if (room.sector_type == .tables.sector_table.desert && .sunlight > 0)
+	    room.echo("Лужа %N2 из %O2 с шипением испаряется на песке.",
+		liq.short_descr, obj);
+	else {
+	    room.echo("Поток %N2 из %O2 проливается %s.",
+		liq.short_descr, obj, .tmp.room.dropWhere(room));
+	    // TO-DO: control the liquid amount
+	    .tmp.object.create_puddle(obj.value2, room);
+	}
+	return true;
+    };
     
     .tmp.object.breakByForce = function(obj, verbose) {
 	try {
@@ -239,52 +369,48 @@
 	var room; room = obj.getRoom();
 	if (room == null) return false;
 
-	// TO-DO: add more material specific messages
-	if (verbose) {
-	    if (obj.material.metal)
-		room.echo("%1$^O1 раскалыва%1$nется|ются на куски.", obj);
-	    else if (obj.material.mineral)
-		room.echo("%1$^O1 рассыпа%1$nется|ются на крошечные осколки.", obj);
-	    else if (obj.material.wood)
+	////////////////////// GENERATE SHARDS //////////////////////
+	if (obj.material.metal || obj.material.mineral) {
+	    // Find material with highest rho for shards
+	    var material, hardest_material;
+	    var max_rho; max_rho = 0;
+
+	    for (m in obj.material.name.split(", ")) {
+		try {material = .Material(m);}
+		catch(e) continue;
+
+		if (material.rho > max_rho) {
+		    max_rho = material.rho;
+		    hardest_material = material;
+		}
+	    }			    
+
+	    var shards; shards = .get_obj_index(28007).create();
+	    shards.material = hardest_material;
+	    shards.timer = .tmp.time.days(1);
+	    shards.short_descr = .fmt("%s %N2", 
+		shards.short_descr, hardest_material.nameRus);
+	    .tmp.object.dropObj(null, shards, false, room);
+	    
+	    if (verbose) {
+		room.echo("%1$^O1 раскалыва%1$nется|ются на %2O1.", obj, shards);
+		room.echoAround("Ты слышишь громкий хруст, будто что-то неподалеку разбивается вдребезги.");
+	    }
+	}
+	else if (verbose) { // TO-DO: add more material specific messages
+	    if (obj.material.wood)
 		room.echo("%1$^O1 превраща%1$nется|ются в труху и опилки.", obj);
 	    else room.echo("%1$^O1 распада%1$nется|ются на части.", obj);
 	}
-
+	
 	////////////////////// CONTAINERS //////////////////////
-	if (obj.item_type == .tables.item_table.container ||
-	    obj.item_type == .tables.item_table.npc_corpse) {
-	    if (obj.items.size() > 0) {
-		// TO-DO (Taiphoen): add sector-specific messages, handle sector air
-		room.echo("Содержимое %O2 вываливается наружу.", obj);
-		for (item in obj.items)
-		    item.obj_to_room(room);
-	    }
-	}
+	if (obj.items.size() > 0)
+	    .tmp.object.pourContainer(obj);
 	
 	//////////////////////// DRINKS ////////////////////////
 	// TO-DO (Taiphoen): add fountain destruction with spill out
-	if (obj.item_type == .tables.item_table.drink && obj.value1 > 0) {
-	    // Replacing obj.pour_out() code here and duplicating from C++ 
-	    // for better handling. TO-DO: call pourOut triggers here
-	    var liq; liq = .Liquid(obj.value2);
-	    
-	    if (room.isWater())
-		room.echo("Поток %N2 из %O2 выплескивается в %N4.",
-		    liq.short_descr, obj, room.liquid.short_descr);
-	    // TO-DO: add fall through for the liquid
-	    else if (room.sector_type == .tables.sector_table.air)
-		room.echo("Поток %N2 из %O2 устремляется куда-то вниз и пропадает.",
-		    liq.short_descr, obj);
-	    else if (room.sector_type == .tables.sector_table.desert)
-		room.echo("Лужа %N2 из %O2 с шипением испаряется на песке.",
-		    liq.short_descr, obj);
-	    else {
-		room.echo("Поток %N2 из %O2 проливается %s.",
-		    liq.short_descr, obj, .tmp.room.dropWhere(room));
-		// TO-DO: control the liquid amount
-		.tmp.object.create_puddle(obj.value2, room);
-	    }    
-	}
+	if (obj.item_type == .tables.item_table.drink && obj.value1 > 0) 
+	    .tmp.object.pourOutDrink(obj);
 
 	.tmp.system.trueExtract(obj);
 	return true; 
@@ -353,6 +479,27 @@
 	puddle.short_descr = "луж|а|и|е|у|ей|е " + liq.short_descr.ruscase(2);
 	puddle.description = "{xЛужа (puddle) " + liq.short_descr.ruscase(2) + " разлита тут.";
 	puddle.name = "puddle лужа " + liquid + " " + liq.short_descr.ruscase(2).stripColour();
+	puddle.timer = .number_range(1, 3);
+	puddle.value2 = liq.index;
+	.tmp.object.dropObj(null, puddle, false, room);
+    };
+    
+    // Create a rain puddle of water (separate, faster implementation)
+    .tmp.object.create_rain_puddle = function(room) {
+	if (room == null) return;
+	var liq; liq = .Liquid("water");
+	
+	// TO-DO (RUFFINA): Temporarily change room liquid instead
+	if (room.isWater()) {
+	    room.echo("Капли дождя барабанят по %s.",
+		room.liquid.short_descr.ruscase(3));
+	    return;
+	}
+	
+	var puddle; puddle = .get_obj_index(75).create();
+	puddle.short_descr = "луж|а|и|е|у|ей|е воды";
+	puddle.description = "{xДождевая лужа (puddle) хлюпает под ногами.";
+	puddle.name = "puddle water дождевая лужа воды";
 	puddle.timer = .number_range(1, 3);
 	puddle.value2 = liq.index;
 	puddle.obj_to_room(room);

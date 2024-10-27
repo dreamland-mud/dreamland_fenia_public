@@ -31,7 +31,7 @@
 	} else {
 	    ch.transfer(
 		targetRoom, ch, 
-		trap.msgMoveOther, trap.msgMoveSelf,
+		trap.msgMoveOther, trap.msgMoveSelf + "\r\n",
 		trap.msgTargetOther, trap.msgTargetSelf);
 	}
     };
@@ -39,10 +39,10 @@
     // Called from onDive to see if ch got into this trap.
     // onDive is called if ch enters the room or every 4 seconds when fighting.
     .tmp.trap.matches = function(ch, trap, movedanger) {
-	//if (ch.is_immortal()) return false;
+	if (ch.is_immortal()) return false;
 
-	if (!ch.is_npc() && (ch.PK_flag & 8)) 
-	    return false; // GHOST
+	if (!ch.is_npc() && .tmp.player.ghost(ch)) 
+	    return false;
 
 	// Most traps (except for a few in New Thalos) don't capture flying folks.
 	if (ch.flying && trap.flyingSafe) 

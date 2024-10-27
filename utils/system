@@ -43,6 +43,15 @@
 	}
     };
     
+    // Returns X to the power of Y
+    power = function(x, y) {
+	var i, result; result = 1;
+	for (i = 0; i < y; i = i + 1)
+	    result = result * x;
+	return result;
+    };
+    
+    
     /*
      * transforms list (a1, a2, ... an) into the string "a1, a2, ... , an"
      */
@@ -108,5 +117,6 @@
     smthCases[4] = "что-то";
     smthCases[5] = "чем-то";
     smthCases[6] = "чём-то";
+    
 })
 

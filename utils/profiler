@@ -1,0 +1,32 @@
+.apply(function() {
+    // Utils to measure performance of a single method in Fenia.
+    // Usage: place .tmp.profiler.start("mymethod") call at the very
+    // beginning of the method, and place .tmp.profiler.stop("mymethod") call
+    // at the very end, before return.
+    
+    // A message will be shown in wiznet saying how many milliseconds "mymethod" took.
+    // One game pulse lasts 200 ms, so anything periodic exceeding 50 ms
+    // is of concern. Especially if it's called in onFight, onArea, onSpec and
+    // on lots of mob/obj/room instances.
+    
+    if (.tmp.profiler == null)
+	.tmp.profiler = .Map();
+	
+    if (.tmp.profiler.registry == null)
+	.tmp.profiler.registry = .Array();
+	
+    .tmp.profiler.start = function(label) {
+	registry[label] = .current_time_millis;    
+    };
+    
+    .tmp.profiler.stop = function(label) {
+	var startTime; startTime = registry[label];
+	
+	if (startTime == null)
+	    return;
+	    
+	var delta; delta = .current_time_millis - startTime;
+	.wiznet("Profiler: " + label + " takes " + delta + " milliseconds");
+    };
+})
+

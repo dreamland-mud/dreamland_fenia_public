@@ -8,7 +8,8 @@
     
     // Basic helper to see if ch "exists"
     .tmp.mob.valid = function(ch) {
-	return (ch != null && !ch.dead && (ch.is_npc() || ch.online));
+	// No other checks needed: ch.dead returns true for offline players/mobs
+	return (ch != null && !ch.dead);
     };
 
     // Is ch awake and capable of perceiving reality?
@@ -61,9 +62,21 @@
 	var weight;
 
 	// Tiny: 1-6 kg <-- 2-12 pounds -- insects/small rodents
-	if (ch.size == 0) weight = .number_range(20, 120);
+	if (ch.size == 0) {
+	    if (ch.form &.tables.form_flags.insect
+		|| ch.form &.tables.form_flags.spider
+		|| ch.form &.tables.form_flags.worm)
+		weight = .number_range(1, 10);
+	    else weight = .number_range(20, 120);
+	}
 	// Small: 7-40 kg <-- 14-80 pounds -- rodents/birds/kenders/faeries
-	else if (ch.size == 1) weight = .number_range(140, 800);
+	else if (ch.size == 1) {
+	    if (ch.form &.tables.form_flags.bird
+		|| ch.form &.tables.form_flags.snake
+		|| ch.form &.tables.form_flags.fish)
+		weight = .number_range(20, 100);
+	    else weight = .number_range(140, 800);
+	}
 	// Medium: 40-110 kg <-- 80-220 pounds -- most humanoids and PC races
 	else if (ch.size == 2) weight = .number_range(800, 2200);
 	// Large: 150-300 kg <-- 300-600 pounds -- centaurs/hoofed/trolls/etc
@@ -98,14 +111,18 @@
     };	
     
     // Determine whether a creature is capable of producing any sounds
+    // Magical and sentient creatures can make sounds
     .tmp.mob.canMakeSound = function(ch) {
-	return (!ch.is_npc() || 
-		!(     ch.form & .tables.form_flags.spider 
-		    || ch.form & .tables.form_flags.blob 
-		    || ch.form & .tables.form_flags.fish 
-		    || ch.form & .tables.form_flags.worm 
-		    || ch.form & .tables.form_flags.crustacean 
-		    || ch.form & .tables.form_flags.insect));	    
+	if (!ch.is_npc() ||
+	    ch.form & .tables.form_flags.sentient ||
+	    ch.form & .tables.form_flags.magical) return true;	 
+	    
+	return (!(ch.form & .tables.form_flags.spider ||
+		  ch.form & .tables.form_flags.blob ||
+		  ch.form & .tables.form_flags.fish ||
+		  ch.form & .tables.form_flags.worm ||
+		  ch.form & .tables.form_flags.crustacean ||
+		  ch.form & .tables.form_flags.insect));	    
     };
 
     // Additional checks whether ch was deactivated or silenced
@@ -131,7 +148,7 @@
     // Determine whether a mob is capable of flying
     .tmp.mob.canFly = function(ch) {
 	if (!.tmp.mob.valid(ch)) return false;
-	if (ch.isAffected("flying") 
+	if (ch.isAffected("fly") 
 	    || ch.affected_by & .tables.affect_flags.flying) return true;
 	if (ch.mount != null
 	    && ch.riding
@@ -287,11 +304,43 @@
 	return result;
     };
     
+    // Determine if ch can wear obj due to level/align
+    // TO-DO (RUFFINA): remove this and add DefaultWearlocation::canWear instead
+    .tmp.mob.wearCheck = function(ch, obj) {
+	var msg; msg = "";
+	
+	// Can't wear due to align
+	if ((ch.good && obj.extra_flags & .tables.extra_flags.anti_good) ||
+	    (ch.neutral && obj.extra_flags & .tables.extra_flags.anti_neutral) ||
+	    (ch.evil && obj.extra_flags & .tables.extra_flags.anti_evil))
+	    msg = msg + .fmt("Твоя натура не позволяет тебе использовать %1$O4.", obj);
+	
+	// Can't wear due to level    
+	if (obj.level > ch.level + ch.profession.wearModifier(obj.item_type))
+	    msg = msg + .fmt("Тебе не хватает опыта, чтобы использовать %1$O4.", obj);
+	
+	// Can't wear limit -- too experienced
+	if (obj.pIndexData.limit > 0 && obj.level < ch.modifyLevel - 20)
+	    msg = msg + .fmt("Ты слишком опыт%1$Gен|ен|на, чтобы использовать %2$O4.", ch, obj);
+	
+	// Can't wear due to wearlocs
+	if (!ch.is_npc()) {
+	    var found; found = false;
+	    for (w in obj.wearlocs)
+		if (ch.hasWearloc(w.name)) found = true;
+	    if (!found)
+		msg = msg + .fmt("Тебе некуда надеть %1$O4.", obj);
+	}
+	
+	return msg;
+    };
+	
     // Determine in character can wear obj: if wearloc matches ch's bodyparts
     .tmp.mob.canWear = function(ch, obj) {
 	if (!.tmp.mob.valid(ch) || !.tmp.object.valid(obj)) return false;
-	if (!obj.worn) return true; // revamp this helper later to exclude this
 	
+	if (.tmp.mob.wearCheck(ch, obj) != "") return false;
+	    
 	// TO-DO: 
 	// - fingers on leg paws
 	// - hands attached to tentacles
@@ -491,11 +540,22 @@
     // NB: ch.hasDestiny consists of this + battlehorse + quest mobs
     .tmp.mob.hasService = function(ch) {
 	return (ch.is_npc() &&
+		// Old service behaviors
 		(ch.hasOccupation("shopper") || ch.hasOccupation("practicer") ||
 		 ch.hasOccupation("repairman") || ch.hasOccupation("quest_trader") ||
 		 ch.hasOccupation("quest_master") || ch.hasOccupation("healer") ||
 		 ch.hasOccupation("smithman") || ch.hasOccupation("trainer") ||
-		 ch.hasOccupation("clanguard") || ch.hasOccupation("adept")));
+		 ch.hasOccupation("clanguard") || ch.hasOccupation("adept") ||
+		 .tmp.mob.isServicer(ch)));
+    };
+    
+    // Check if mob has new service behaviors
+    .tmp.mob.isServicer = function(ch) {
+	return (ch.is_npc() &&
+		(ch.pIndexData.behaviors.has("healer") || 
+		 ch.pIndexData.behaviors.has("blacksmith") ||
+		 ch.pIndexData.behaviors.has("enchanter") || 
+		 ch.pIndexData.behaviors.has("sage")));
     };
 
     // determine whether any ch can rescue victim in battle
@@ -562,37 +622,5 @@
 	return (   (ch.good && vict.evil) 
 		|| (ch.evil && vict.good));
     };
-
-    /////////////////////////////////////////////////////////////
-    ////////////////////// PC ONLY //////////////////////////////
-    /////////////////////////////////////////////////////////////
     
-    // Use this helper to correctly check for fightspam config flag
-    // TO-DO (RUFFINA): replace this with native parameters in act/comm
-    .tmp.mob.fightspam = function(vict, ch, vict_msg, ch_msg, room_msg) {
-	if (!vict.is_npc() && (vict.config & .tables.config_flags.fightspam))
-	    vict.act(vict_msg, vict, ch);
-	    
-	if (!ch.is_npc() && (ch.config & .tables.config_flags.fightspam))
-	    ch.act(ch_msg, vict, ch);
-	    
-	for (wch in vict.in_room.ppl.sub(ch).sub(vict))  
-	    if (!wch.is_npc() && .tmp.mob.awake(wch) && !.tmp.mob.isBlind(wch) &&
-		(wch.config & .tables.config_flags.fightspam))
-		wch.act(room_msg, vict, ch);
-    };
-    
-    // Use this helper to set THIEF flag to the player (T)
-    .tmp.mob.setThief = function(ch) {
-	if (!.tmp.mob.valid(ch) || ch.is_npc()) return;
-	ch.PK_flag = .unset_bit(ch.PK_flag, 1); // remove SLAIN
-	
-	if (!(ch.PK_flag & 16)) {
-	    ch.PK_flag = .set_bit(ch.PK_flag, 16); // add THIEF
-	    ch.act("Ты получаешь метку {RВОРЮГИ!{x");
-	}
-
-	ch.PK_time_t = 15 * 16; //.tmp.time.hours(15);
-	ch.act("На протяжении следующих {Y15 тиков{x на тебя сможет {hh32напасть{x любой игрок.");
-    };	
 })

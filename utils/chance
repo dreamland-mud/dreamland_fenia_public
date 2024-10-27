@@ -25,6 +25,16 @@
 	}
 	else return .chance(.urange(1, success, 99));
 
+	// Deity patron increases luck by 1%
+	if (.tmp.religion.hasMark(ch, false) && 
+	    (ch.religion.patrons(ch) || ch.profession.name == "cleric")) {
+	    success = success + 1;
+	    msg = msg + .fmt("{1{CТы чувствуешь особое покровительство %N2!{2",
+		ch.religion.nameRus); 
+	}
+	
+	// TO-DO: Add karma and global enchantments here
+	
 	success = .urange(1, success, 99); // there's always a chance!
 	
 	if (.chance(success)) {
@@ -45,9 +55,7 @@
 	if (rel.flags & .tables.religion_flags.cult) success = 7;
 	else success = 5; // basic chance for cults is higher
 	
-	if (.tmp.religion.hasRacePatron(ch)
-	    || .tmp.religion.hasClassPatron(ch)
-	    || .tmp.religion.hasClanPatron(ch)) {
+	if (rel.patrons(ch) || ch.profession.name == "cleric") {
 	    success = success + 1; // only one bonus at a time
 	    msg = msg + .fmt("{1{CТы чувствуешь особое покровительство %N2!{2", rel.nameRus); 
 	}
