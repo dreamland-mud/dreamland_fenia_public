@@ -544,7 +544,7 @@
 		(ch.hasOccupation("shopper") || ch.hasOccupation("practicer") ||
 		 ch.hasOccupation("repairman") || ch.hasOccupation("quest_trader") ||
 		 ch.hasOccupation("quest_master") || ch.hasOccupation("healer") ||
-		 ch.hasOccupation("smithman") || ch.hasOccupation("trainer") ||
+		 ch.hasOccupation("blacksmith") || ch.hasOccupation("trainer") ||
 		 ch.hasOccupation("clanguard") || ch.hasOccupation("adept") ||
 		 .tmp.mob.isServicer(ch)));
     };

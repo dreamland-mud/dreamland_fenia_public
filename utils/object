@@ -1,6 +1,16 @@
 .apply(function() {
     if (.tmp.object == null) .tmp.object = .Map();
     
+    // Return 'true' if item has some sort of behavior
+    .tmp.object.special = function(obj) {
+	var triggers; triggers = obj.pIndexData.triggers;
+	
+	return triggers.has("onUse") || triggers.has("postUse")
+		|| triggers.has("onFight")
+		|| triggers.has("onEquip")
+		|| triggers.has("onSpec");
+    };
+    
     /////////////////////////////////////////////////////////////
     ////////////////////// MATERIALS ////////////////////////////
     /////////////////////////////////////////////////////////////
