@@ -223,6 +223,7 @@
 
     .get_mob_index(3063).postSpeech = function(mob, ch, msg) {
 	if (!.tmp.mob.canActAmbient(mob)
+	    || !.tmp.mob.valid(ch)
 	    || ch.in_room != mob.in_room
 	    || !.tmp.mob.canSpeak(mob)
 	    || mob.waitForSpeech == null
@@ -231,15 +232,11 @@
 
 	if (.chance(50) && ch.modifyLevel <= mob.level+2) {
 	    mob.say("А если найду?!");
-
-	    if(.chance(50)) return;
-
+	    if (.chance(50)) return;
 	    mob.one_hit(ch);
 	} else {
-	    if(.chance(50))
-		mob.interpret("smirk " + ch.name);
-	    else
-		mob.interpret("grin " + ch.name);
+	    if(.chance(50)) mob.interpret("smirk " + ch.name);
+	    else mob.interpret("grin " + ch.name);
 	}
 
 	mob.waitForSpeech = null;

@@ -1,5 +1,77 @@
 .apply(function() {
     if (.tmp.weight == null) .tmp.weight = .Map();
+    if (.tmp.object == null) .tmp.object = .Map();
+    
+    .tmp.weight.calculateWeight = function(obj) {
+	if (!.tmp.object.valid(obj)) return 0;
+	if (obj.item_type == .tables.item_table.money)
+	    return .tmp.weight.silver(obj.value0) + .tmp.weight.gold(obj.value1);
+	
+	var size; size = .tmp.object.dimensions(obj);
+	
+	var volume; // calculate volume in cubic millimeters
+	volume = size.length * size.width * size.thickness * size.quantity;
+	volume = .max(1, volume / 1000); // volume in cubic centimeters
+
+	var weight; weight = 0; // calculate weight in grams
+	// volume / 1000 = volume in cm3, rho / 1000 = density in g/cm3
+	//weight = .max(1, (volume * obj.material.rho) / 1000);
+
+	var materials; materials = obj.material.name.split(", ");
+	var total; total = materials.size();
+	var sum; sum = 0;
+	var k; k = 1;
+	
+	for (; k <= total; k = k + 1)
+	    sum = sum + .div(1, .power(2, k - 1));
+	
+	var i; i = 1;
+
+	for (m in materials) {
+	    var config; config = .tmp.object.getMaterialConfig(m);
+	    if (config == null) {
+		.discord_wiznet(.fmt(":name_badge: [MATERIAL] %O1 [%d]: material '%s' returned null config",
+		    obj, obj.vnum, m));
+		return 1;
+	    }
+	    var rho; rho = .tmp.object.getMaterialConfig(m).rho;
+	    var fraction;
+	    fraction = .div(1, .power(2, i - 1));
+	    fraction = .div(fraction, sum);
+	    var volume_part; volume_part = .mult(volume, fraction);
+	    var prho; prho = .mult(volume_part, rho);
+	    // TO-DO (RUFFINA): :))))) look what you're making me do
+	    if (prho < 0) prho = 2147000000; 
+	    
+	    var mass; mass = .div(prho, 1000);
+
+	    weight = weight + mass;
+	    i = i + 1;
+	}
+
+	// Now convert into MUD "units" -- 1/10 of pound currently
+	weight = .max(1, (weight * 10) / 454); // weight in 1/10 of a pound
+
+	// Significantly lighten certain item types
+	if (obj.item_type == .tables.item_table.weapon) {
+	    if (obj.pIndexData.value0 == .tables.weapon_class.arrow)
+		weight = .urange(1, weight / 4, 20);
+	    else if (obj.pIndexData.value0 == .tables.weapon_class.spear)
+		weight = .urange(1, weight / 3, 200);
+	    else if (obj.pIndexData.value0 == .tables.weapon_class.polearm)
+		weight = .urange(1, weight / 2, 400);
+	}
+	else if (obj.item_type == .tables.item_table.jewelry)
+	    weight = .urange(1, weight / 3, 80);
+	else if (obj.item_type == .tables.item_table.drink)
+	    weight = .urange(1, weight / 5, 100) + obj.pIndexData.value1;
+	else if (obj.item_type == .tables.item_table.trash)
+	    weight = .urange(1, weight / 5, 100);
+	else if (obj.item_type == .tables.item_table.container)
+	    weight = .urange(1, weight / 5, 5000);
+	    
+	return weight;
+    };
     
     // Weight given number of gold coins (in pounds).
     .tmp.weight.gold = function(amount) {

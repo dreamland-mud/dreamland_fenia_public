@@ -20,7 +20,7 @@
 	    && .Bonus("thief skills").active(ch) 
 	    && ch.profession.name == "thief") {
 	    var bonus; bonus = .number_range(1, 10);
-	    if (bonus > 5) msg = msg + "{1{GПохоже, ворам сегодня фартит больше обычного.{2"; 
+	    if (bonus > 5) msg = msg + "{1{GПохоже, ворам сегодня фартит больше обычного.{/{2"; 
 	    success = success + bonus;
 	}
 	else return .chance(.urange(1, success, 99));

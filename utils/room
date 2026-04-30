@@ -2,56 +2,255 @@
     
     if (.tmp.room == null) .tmp.room = .Map();
 
-    .tmp.room.get_obj_behavior = function(room, bhv) {
-	for (i in room.items)
-	    if (i.hasBehavior(bhv))
-		return i;
-		
-	return null;
+    ////////////////////////////////////////////////////////////////////////
+    //////////////////////  BURN/FLOOD ROOMS  //////////////////////////////
+    ////////////////////////////////////////////////////////////////////////
+    
+    // Check if it's possible to start a fire (heat) in a room
+    .tmp.room.canBurn = function(room) {
+	if (.tmp.transport.isProtectedRoom(room)) return false; 
+	
+	if (room.sector_type == .tables.sector_table.air
+	    || room.sector_type == .tables.sector_table.underwater
+	    || room.sector_type == .tables.sector_table.water_swim
+	    || room.sector_type == .tables.sector_table.water_noswim)
+	    return false; // no fire if water or air
+	    
+	if (room.isOutside() && !room.isAffected("heat") &&
+	    (room.sector_type == .tables.sector_table.desert
+	     || room.sector_type == .tables.sector_table.field))
+	     return false; // no fire when wide open
+	
+	return true;
+    };
+	
+    .tmp.room.burn = function(room, level, duration) {
+	if (room == null || !.tmp.room.canBurn(room)) return;
+	if (room.isAffected("heat")) return;
+	
+	if (!room.isOutside())
+	    room.echo("{RВ замкнутом пространстве вокруг тебя начинается пожар! Беги!{x");
+	else if (room.sector_type == .tables.sector_table.forest) 
+	    room.echo("{RДеревья вокруг тебя внезапно охватывает гудящее пламя -- начинается пожар!{x");
+	else if (room.sector_type == .tables.sector_table.city)    
+	    room.echo("{RУлицы и дома вокруг занимаются огнем -- начинается пожар!{x");
+	else room.echo("{RВся окружающая местность вспыхивает -- начинается пожар!{x");
+
+	if (room.isAffected("deforestation"))
+	    room.affectStrip("deforestation", false);
+	
+	var af; af = .Affect();
+	af.type      = "heat";
+	af.level     = level;
+	af.duration  = duration;
+	af.bitvector("room_flags", "no_quest");
+	af.location  = .tables.apply_flags.sector_type;
+	af.modifier  = .tables.sector_table.desert;
+	
+	// TO-DO (RUFFINA): Replace this with room instances interface
+	room.original_sector_type = room.fire_msg = null;
+	room.original_sector_type = room.sector_type;
+	
+	// Saving future affect description into af.global in lieu of af.fenia_vars
+	if (!room.isOutside())
+	    room.fire_msg = "{1{RПОЖАР!{2 Замкнутое пространство вокруг {1{Yраскалено и затянуто дымом{2";
+	else if (room.sector_type == .tables.sector_table.forest) 
+	    room.fire_msg = "{1{RПОЖАР!{2 Деревья вокруг тебя {1{Yпылают,{2 живность в ужасе разбегается";
+	else if (room.sector_type == .tables.sector_table.hills) 
+	    room.fire_msg = "{1{RПОЖАР!{2 Склоны холмов {1{Yпылают и затянуты дымом,{2 воздух раскален";
+	else if (room.sector_type == .tables.sector_table.city)  
+	    room.fire_msg = "{1{RПОЖАР!{2 Улицы и дома {1{Yпылают,{2 люди в ужасе разбегаются";	
+	else room.fire_msg = "{1Все вокруг {1{Yпылает{2, воздух раскален";
+	
+	room.affectAdd(af);
+	
+	if (room.room_flags & .tables.room_flags.near_water) {
+	    af.bitvector("room_flags", "near_water");
+	    af.location = .tables.apply_flags.bitvector;
+	    af.modifier = -1; // remove near_water flag
+	    room.affectAdd(af);
+	}
+
     };
     
-
-    .tmp.room.dirNames = .List().add(
-	"north",
-	"east",
-	"south",
-	"west",
-	"up",
-	"down");
-	
-    .tmp.room.dirRusNames = .List().add(
-	"на север",
-	"на восток",
-	"на юг",
-	"на запад",
-	"вверх",
-	"вниз");
-
-    .tmp.room.moveTypes = .Array();
-    .tmp.room.MoveType = function(name, enter, leave) {
-	this = .Map();
-	this.name = name;
-	this.enter = enter;
-	this.leave = leave;
-	.tmp.room.moveTypes[name] = this;
-	return this;
+    // Attempt to extinguish heat affect and any fires in a room
+    // ch can be null. use level -1 for guaranteed action
+    .tmp.room.extinguish = function(room, level, ch) {
+	if (room == null) return;
+	if (level == null) level = 50; // default
+	if (room.isAffected("heat")) {
+	    var aff; aff = .Affect();
+	    for (a in room.affected) 
+		if (a.type == "heat" && a.duration != -1) aff = a;	
+	    if (level == -1 || !.tmp.room.savesDispel(aff, level, ch))
+		room.affectStrip(aff.type, true);
+	}
+	var fire; fire = room.get_obj_vnum(39001);
+	if (fire != null) .tmp.object.extinguish(fire, false); // no ashes 
     };
-    .tmp.room.MoveType("swimming", "приплы%1$Gло|л|ла", "уплы%1$Gло|л|ла");
-    .tmp.room.MoveType("waterwalk", "приш%1$Gло|ел|ла по воде", "уш%1$Gло|ел|ла по воде");
-    .tmp.room.MoveType("slink", "припол%1$Gзло|з|зла", "упол%1$Gзло|з|зла");
-    .tmp.room.MoveType("crawl", "прокрал%1$Gось|ся|ась", "прокрал%1$Gось|ся|ась");
-    .tmp.room.MoveType("normal", "приш%1$Gло|ел|ла", "уш%1$Gло|ел|ла");
-    .tmp.room.MoveType("quickly", "еще нету", "еще нету");
-    .tmp.room.MoveType("running", "прибежа%1$Gло|л|ла", "убежа%1$Gло|л|ла");
-    .tmp.room.MoveType("flee", "прибежа%1$Gло|л|ла", "сбежа%1$Gло|л|ла");
-    .tmp.room.MoveType("riding", "прискака%1$Gло|л|ла", "ускака%1$Gло|л|ла");
-    .tmp.room.MoveType("flying", "прилете%1$Gло|л|ла", "улете%1$Gло|л|ла");
 
+    // Source can be null for room behavior.
+    .tmp.room.flood = function(room, level, duration, sector, source) {
+	if (room == null || room.isAffected("flood")) return;
+	
+	if (room.isAffected("cultivate")) // flood strips terraforming
+	    room.affectStrip("cultivate", true);
+
+	// flood extinguishes non-permanent heat/fire
+	.tmp.room.extinguish(room, level, source);
+    
+	var af; af = .Affect();
+	af.type      = "flood";
+	af.level     = level;
+	af.duration  = duration;
+	af.location = .tables.apply_flags.sector_type;
+	af.modifier = sector; 
+	if (source != null) af.source = source;
+	af.bitvector("room_flags", "no_quest near_water");
+	room.affectAdd(af);	
+
+	af.location = .tables.apply_flags.none;	
+	af.modifier = 0;
+	af.bitvector("raffect_flags", "prevent"); // protected from "progress"
+	room.affectAdd(af);
+
+	af.where = .tables.affwhere_flags.liquids;
+	af.global = "water";
+	room.affectAdd(af);
+
+    };
+
+    ////////////////////////////////////////////////////////////////////////
+    //////////////////////  FORESTS / TREES  ///////////////////////////////
+    ////////////////////////////////////////////////////////////////////////
+
+    // Drop a log or firewood in a room: lumberjack, hurricane etc.
+    // Picks a wood material weighted by rarity; softwoods common, hardwoods rare.
+    .tmp.room.dropTree = function(room) {
+	var product;
+	if (.chance(1)) {
+	    product = .get_obj_index(28036).create(); // firewood (rotten tree)
+	    room.echo("Сгнившее дерево падает %1$s, превращаясь в %2$O4!",
+		.tmp.room.dropWhere(room), product);
+	}
+	else {
+	    // Parallel lists: base vnum (hardness tier), material name, Russian adjective, weight.
+	    // Empty adj means keep stock short_descr. Softwoods (28037) common, hardwoods (28038) rare.
+	    var vnums, materials, adjs, weights;
+	    vnums     = .List().add(28037, 28037, 28037, 28037, 28037,  28038, 28038, 28038, 28038);
+	    materials = .List().add("aspen", "yew", "redwood", "bamboo", "softwood",
+				    "oak", "ashwood", "hardwood", "ebony");
+	    adjs      = .List().add("осинов|ое|ого|ому|ое|ым|ом",
+				    "тисов|ое|ого|ому|ое|ым|ом",
+				    "", // redwood uses a genitive phrase, not adjective
+				    "бамбуков|ое|ого|ому|ое|ым|ом",
+				    "", // softwood: keep stock short_descr
+				    "дубов|ое|ого|ому|ое|ым|ом",
+				    "ясенев|ое|ого|ому|ое|ым|ом",
+				    "", // hardwood: keep stock "бревно из твердого дерева"
+				    "эбенов|ое|ого|ому|ое|ым|ом");
+	    weights   = .List().add(25, 18, 15, 12, 10,  10, 6, 3, 1); // total 100
+
+	    // Weighted random pick
+	    var total, roll, idx; total = 0; idx = 0;
+	    for (w in weights) total = total + w;
+	    roll = .number_range(1, total);
+	    
+	    for (w in weights) {
+		if (roll <= w) break;
+		roll = roll - w;
+		idx = idx + 1;
+	    }
+
+	    product = .get_obj_index(vnums.at(idx)).create();
+	    product.material = .Material(materials.at(idx));
+
+	    // Rename based on picked material
+	    var adj; adj = adjs.at(idx);
+	    if (materials.at(idx) == "redwood") {
+		product.short_descr = "бревн|о|а|у|о|ом|е из красного дерева";
+		product.keyword = "log redwood бревно красное дерево";
+	    }
+	    else if (adj != "") {
+		var parts; parts = adj.split("|");
+		product.short_descr = adj + " бревн|о|а|у|о|ом|е";
+		product.keyword = "log " + materials.at(idx) + " бревно "
+		    + parts.at(0) + " " + parts.at(0) + parts.at(1);
+	    }
+	    // Softwood/hardwood generic: keep stock short_descr & keyword.
+
+	    room.echo("Дерево с грохотом падает %1$s, превращаясь в %2$O4!",
+		.tmp.room.dropWhere(room), product);
+	}
+
+	product.timer = .tmp.time.months(1); // timer to prevent hoarding
+	.tmp.object.dropObj(null, product, false, room); // drop the log
+    };
+
+    // Returns the number of healthy trees, damaged trees and young sprouts in a forest
+    .tmp.room.getTreeStats = function(room) {	
+	if (room.sector_type != .tables.sector_table.forest && 
+	    !room.isAffected("deforestation")) return null; // sanity check
+	var stats; stats = .Map(); // assign defaults
+	stats.forest_total = 500;
+	stats.healthy_trees = 500;
+	stats.damaged_tree = 0;
+	stats.sprouts = 0;
+	
+	if (room.isAffected("deforestation")) {
+	    for (af in room.affected) {
+		if (af.type == "deforestation") {
+		    if (af.location == .tables.apply_flags.hit && af.modifier >= 0)
+			stats.forest_total = af.modifier;
+		    else if (af.location == .tables.apply_flags.mana & af.modifier >= 0)
+			stats.sprouts = af.modifier;
+		}
+	    }
+	    stats.damaged_tree = stats.forest_total % 100;
+	    stats.healthy_trees = stats.forest_total - stats.damaged_tree;
+	}
+	
+	return stats;
+    };
+    
+    // Apply or update deforestation affect with tree stats
+    .tmp.room.updateForest = function(room, level, stats) {
+	room.affectStrip("deforestation", false);
+	
+	var af; af = .Affect();
+	af.type      = "deforestation";
+	af.level     = level;
+	af.duration  = -1;
+
+	if (stats.forest_total <= 0) {
+	    for (vch in room.ppl) // nowhere left to hide
+		if (vch.isAffected("camouflage")) vch.visible();
+
+	    af.location  = .tables.apply_flags.sector_type;
+	    af.modifier  = .tables.sector_table.field;
+	    room.affectAdd(af);
+	}
+
+	af.location  = .tables.apply_flags.hit;
+	af.modifier  = .max(0, stats.healthy_trees + stats.damaged_tree);
+	room.affectAdd(af);
+	
+	af.location  = .tables.apply_flags.mana;
+	af.modifier  = .max(0, stats.sprouts);
+	room.affectAdd(af);
+	
+	return true;
+    };
+
+    ////////////////////////////////////////////////////////////////////////
+    ////////////////////////  VARIOUS HELPERS  /////////////////////////////
+    ////////////////////////////////////////////////////////////////////////
+    
     // "Smart" echo in the room: accounts for blindness, sleep etc.
     .tmp.room.echo = function(room, msg) {
 	if (room == null) return;
 	
-	for (rch in room.ppl) {
+	for (rch in room.players) {
 	    if (.tmp.mob.awake(rch) && !.tmp.mob.isBlind(rch))
 		rch.act(msg);
 	}
@@ -97,108 +296,33 @@
     
 	return (room.isWater() || puddle != null);
     };
-
-    // Determine if ch can move vict (or themselves): from_room -> to_room
-    .tmp.room.canMove = function(ch, vict, from_room, to_room, verbose) {
-	var msg; msg = "";
-	if (!ch.can_see_room(to_room)) {
-	    if (ch == vict) msg = "Жаль, но ты не можешь туда идти.";
-	    else msg = .fmt("Жаль, но %1$C1 не мо%1$nжет|гут туда идти.", vict);
-	}
-	else if (from_room == to_room) {
-	    if (ch == vict) msg = "Ты пробуешь переместиться... но почему-то оказываешься на том же месте.";
-	    else msg = .fmt("%1$^C1 пробу%1$nет|ют переместиться... но почему-то оказыва%1$nется|ются на том же месте.", vict);
-	}
-	else if (vict.is_npc() && .tmp.transport.isProtectedRoom(to_room) &&
-		 (vict.act & .tables.act_flags.aggressive ||
-		  vict.affected_by & .tables.affect_flags.bloodthirst) ) {
-	    if (ch == vict) msg = "Тебе запрещен вход в эту мирную местность.";
-	    else msg = .fmt("%1$^C3 запрещен вход в эту мирную местность", vict);	    
-	}
-	else if (!.tmp.transport.canFitInto(vict, to_room)) {
-	    if (ch == vict) msg = "Для тебя там сейчас нет места.";
-	    else msg = .fmt("Для %1$C2 там сейчас нет места.", vict);	    
-	}
-	else if (to_room.guilds != "" && !vict.is_npc()) {
-	    if (!to_room.guilds.contains(vict.profession.name)) {
-		if (ch == vict) msg = "Ты не можешь войти в чужую гильдию.";
-		else msg = .fmt("%1$^C4 не впустят в чужую гильдию.", vict);		    
-	    }
-	    if (vict.adrenaline || vict.PK_time_v > 0) {
-		if (ch == vict) msg = "С кровью на руках тебе там не найти укрытия.";
-		else msg = .fmt("С кровью на руках %1$C3 там не найти укрытия.", vict);			    
-	    } 
-	}
-	else if (to_room.room_flags & .tables.room_flags.safe) {
-	    if (!vict.is_npc() && (vict.adrenaline || vict.PK_time_v > 0)) {
-		if (ch == vict) msg = "С кровью на руках тебе там не найти укрытия.";
-		else msg = .fmt("С кровью на руках %1$C3 там не найти укрытия.", vict);			    
-	    }	    
-	}
-	else if (to_room.sector_type == .tables.sector_table.air) {
-	    if (!vict.flying) {
-		if (ch == vict) msg = "Чтобы попасть туда, тебе сначала надо взлететь.";
-		else msg = .fmt("Чтобы попасть туда, %1$C3 сначала надо взлететь.", vict);
-	    }    
-	}
-	else if (to_room.sector_type == .tables.sector_table.water_noswim) {
-	    if (!vict.flying && vict.boat == null &&
-		!(vict.affected_by & .tables.affect_flags.swim)) {
-		if (ch == vict) msg = "Чтобы попасть туда, тебе нужна лодка, способность плавать или полет.";
-		else msg = .fmt("Чтобы попасть туда, %1$C3 нужна лодка, способность плавать или полет.", vict);	        
-	    }    
-	}
-	else if (to_room.sector_type == .tables.sector_table.underwater) {
-	    if (!(vict.affected_by & .tables.affect_flags.swim)) {
-		if (ch == vict) msg = "Чтобы попасть {hh2128под воду{x, тебе нужны жабры или акваланг.";
-		else msg = .fmt("Чтобы попасть {hh2128под воду{x, %1$C3 нужны жабры или акваланг.", vict);	        
-	    }    
-	}
-	else if (vict.form & .tables.form_flags.fish) {
-	    if (from_room.isWater() && !to_room.isWater()) {
-		if (ch == vict) msg = "Ты -- рыба, а не амфибия, тебе нельзя выходить на сушу.";
-		else msg = .fmt("%1$^C1 -- рыба, а не амфибия, %1$P3 нельзя выходить на сушу.", vict);		        
-	    }
-	}
-	else if (vict.detection & .tables.detect_flags.web) {
-	    if (ch == vict) msg = "Ты пробуешь переместиться, но паутина удерживает тебя на месте.";
-	    else msg = .fmt("%1$^C1 не мо%1$nжет|гут переместиться, паутина удерживает %1$P2 на месте.", vict);	    
-	}
-	else if (vict.isAffected("entangle")) {
-	    if (ch == vict) msg = "Ты пробуешь переместиться, но корни терновника удерживают тебя на месте.";
-	    else msg = .fmt("%1$^C1 не мо%1$nжет|гут переместиться, корни терновника удерживают %1$P2 на месте.", vict);	    
-	}
-	else if (vict.detection & .tables.detect_flags.immobilized) {
-	    if (ch == vict) msg = "Ты не можешь переместиться, когда тебя обездвижили.";
-	    else msg = .fmt("%1$^C1 не мо%1$nжет|гут переместиться -- %1$P2 обездвижили.", vict);	    
-	}
-	else if (vict.isAffected("manacles") && ch.getClan() != "RULER") {
-	    if (ch == vict) msg = "Ты не можешь переместиться в кандалах.";
-	    else msg = .fmt("%1$^C1 не мо%1$nжет|гут переместиться -- %1$P2 заковали в кандалы.", vict);	    
-	}
     
-	if (msg != "") {
-	    if (verbose) ch.act(msg); // allow silent check, e.g., for teleport
-	    return false;
-	}
-    
-	return true;
+    // Is room part of onboarding?
+    .tmp.room.isIntroArea = function(room) {
+	return .tmp.transport.isIntroArea(room.area);
     };
     
-    // Find room below the one in the air
-    .tmp.room.findBelow = function(room) {
-	/*
-	if (room == null) return;
-	var target; target = room;
-	var count; count = 0;
-	for (;;) {
-	    if (room.down == null)
-		return target;
-	    else {
-		count = count + 1;
-		target = room.down;
-	    }
-	}   */ 
-    };
+    // Chance to dispel room affects. ch can be null
+    // Returns TRUE if saves vs. dispel --> dispel DOESN'T WORK
+    // Returns FALSE if save fails --> dispel works
+    .tmp.room.savesDispel = function(affect, dispel_level, ch) {
+	if (affect == null) return true; // sanity check
+	if (affect.duration < 0) return true; // can't dispel permanent affects
 
+	var save;
+	// each level diff adds/subtracts 5% chance to dispel
+	save = 50 + (affect.level - dispel_level) * 5;
+	save = .urange(5, save, 95);
+	
+	if (ch != null) return .tmp.chance(100 - save, ch);
+	else return .chance(save);
+    };
+    
+    .tmp.room.get_obj_behavior = function(room, bhv) {
+	for (i in room.items)
+	    if (i.hasBehavior(bhv))
+		return i;
+		
+	return null;
+    };	
 })

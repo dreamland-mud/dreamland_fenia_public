@@ -25,10 +25,10 @@
 	else {
 	    if (ch.profession.name == "druid")
 		amount = amount * 2;
-	    else if (.tmp.religion.hasPatron(ch, "fili", false))
+	    if (.tmp.religion.hasPatron(ch, "fili", false))
 		amount = amount / 4;
-	    else if (servicer.getClan().toLower() != "none" &&
-		     servicer.getClan().toLower() == ch.getClan().toLower())
+	    if (servicer.getClan().toLower() != "none" &&
+		servicer.getClan().toLower() == ch.getClan().toLower())
 		amount = amount / 2;
 	}
 	return amount;
@@ -54,23 +54,25 @@
     .tmp.currency.gainQP = function(ch, amount, verbose) {
 	ch.questpoints = ch.questpoints + amount;
 	if (verbose)
-	    ch.act("{yВ награду ты получаешь {C%1$d {y{leqp{lrквестовых единиц{x{y, уииии!{x",
+	    ch.act("{yВ награду ты получаешь {C%1$d {yквестовых единиц, уииии!{x",
 		.abs(amount));
 	return;
     };
     
     // Characters pays (loses) amount in qp, e.g. as a payment for services
+    // Return true if succeeded, false if ch can't afford
     .tmp.currency.payQP = function(ch, amount, verbose) {
-	if (ch.questpoints >= amount) {
+	if (.tmp.currency.canAfford(ch, amount, "qp")) {
 	    ch.questpoints = ch.questpoints - amount;
 	    if (verbose)
-		ch.act("{yТы вздыхаешь, выплачивая {R%1$d {y{leqp{lrквестовых единиц{x{y.{x",
+		ch.act("{yТы вздыхаешь, выплачивая {R%1$d {yквестовых очков.{x",
 		    .abs(amount));
+	    return true;
 	}
 	else if (verbose)
-	    ch.act("{yУ тебя всего {c%1$d {y{leqp{lrквестовых единиц{x{y -- а требуется {C%2$d{y.{x",
+	    ch.act("{yУ тебя всего {c%1$d {yквестовых очков -- а требуется {C%2$d{y.{x",
 		ch.questpoints, .abs(amount));
-	return;
+	return false;
     };
     
     // Input amount in silver, outputs formatted "X gold and Y silver"
@@ -89,6 +91,40 @@
 	return msg;
     };
     
+    // Input amount in both gold in silver, output formatted "X gold and Y silver" or just "X gold|silver"
+    // Put them in nominative (1), genitive (2) or accusative (4) grammatical cases.
+    .tmp.currency.printGoldSilver = function(gold, silver, gcase) {
+	if (gold != 0 && silver != 0) {
+	    if (gcase == 4)
+		return .fmt("{1{Y%1$d{2 золот%1$Iую|ые|ых и {1{W%2$d{2 серебрян%2$Iую|ые|ых монет%2$Iу|ы|",
+			gold, silver);
+	    else if (gcase == 2)
+		return .fmt("{1{Y%1$d{2 золот%1$Iой|ых|ых и {1{W%2$d{2 серебрян%2$Iой|ых|ых монет%2$Iы||",
+			gold, silver);
+	    else
+		return .fmt("{1{Y%1$d{2 золот%1$Iая|ые|ых и {1{W%2$d{2 серебрян%2$Iая|ые|ых монет%2$Iа|ы|",
+			gold, silver);
+		    
+	} else if (gold != 0 && silver == 0) {
+	    if (gcase == 4)
+		return .fmt("{1{Y%1$d{2 золот%1$Iую|ые|ых монет%1$Iу|ы|", gold);
+	    else if (gcase == 2)
+		return .fmt("{1{Y%1$d{2 золот%1$Iой|ых|ых монет%1$Iы||", gold);
+	    else
+		return .fmt("{1{Y%1$d{2 золот%1$Iая|ые|ых монет%1$Iа|ы|", gold);
+	    
+
+	} else {
+	    if (gcase == 4)
+		return .fmt("{1{W%1$d{2 серебрян%1$Iую|ые|ых монет%1$Iу|ы|", silver);
+	    else if (gcase == 2)
+		return .fmt("{1{W%1$d{2 серебрян%1$Iой|ых|ых монет%1$Iы||", silver);
+	    else
+		return .fmt("{1{W%1$d{2 серебрян%1$Iая|ые|ых монет%1$Iа|ы|", silver);
+
+	}
+    };
+    
     // Give character <amount> in silver, e.g. as a quest reward 
     .tmp.currency.gainMoney = function(ch, amount, verbose) {
 	var silver_amount, gold_amount;
@@ -99,8 +135,8 @@
 	ch.gold = ch.gold + gold_amount;
 	
 	if (verbose)
-	    ch.act("{yТвой кошелек становится тяжелее на %1$s.{x",
-		.tmp.currency.printMoney(amount));
+	    ch.act("{yТвой кошелек становится тяжелее на %s.{x",
+		.tmp.currency.printGoldSilver(gold_amount, silver_amount, 4));
 	return;
     };
     
@@ -126,8 +162,8 @@
 	    }
 
 	    if (verbose)
-		ch.act("{yТы вздыхаешь, выплачивая %1$s.{x",
-		    .tmp.currency.printMoney(amount));
+		ch.act("{yТы вздыхаешь, выплачивая %s.{x",
+		    .tmp.currency.printGoldSilver(gold_amount, silver_amount, 4));
 	    return;	 	        
 	}
 	return;

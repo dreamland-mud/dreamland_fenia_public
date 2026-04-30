@@ -180,6 +180,7 @@
 		ch.form & .tables.form_flags.intangible)
 		return true;
 	}
+	else if (.tmp.player.ghost(ch)) return true;
 	return false;
     };	
     
@@ -217,7 +218,7 @@
 		 ch.wearloc.split(' ').has("wrist_r")));
     };
     
-    // Check if ch has free hand to grab/catch
+    // Check if ch has free hand to grab/catch or shoot bow
     .tmp.mob.hasFreeHand = function(ch) { 
 	if (!.tmp.mob.hasHands(ch)) return false;
 	var w; w = ch.get_eq_char("wield");
@@ -245,7 +246,7 @@
 	    if (partname == null) return false; // sanity check if incorrect bit
 	}
 	
-	var parts; parts = .tables.part_flags.names(ch.parts).split(" ");
+	var parts; parts = .tables.part_flags.names(ch.parts).arguments();
 	for (p in parts)
 	    if (p == partname) return true;
 	
@@ -410,6 +411,14 @@
 		    ch.form & .tables.form_flags.mammal);
 	else return true; // no more specifics for now
     };
+    
+    // Determine if ch has any item with given wearloc
+    // Use for newbie outfit and similar quests
+    .tmp.mob.hasObjWearloc = function(ch, wearloc) {
+	for (item in ch.items)
+	    if (.tmp.object.hasWearloc(item, wearloc)) return true;
+	return false;
+    };
 	
     /////////////////////////////////////////////////////////////
     ////////////////////// IN COMBAT ////////////////////////////
@@ -498,10 +507,20 @@
 
     // Is master alive and in the same room?
     .tmp.mob.masterHere = function(mob) {
-	return (.tmp.mob.valid(mob) && mob.is_npc()
+	return (.tmp.mob.valid(mob) 
+		&& mob.is_npc()
 		&& mob.master != null
 		&& .tmp.mob.valid(mob.master)
 		&& mob.master.in_room == mob.in_room);	    
+    };
+    
+    // Replace NPC killer with their master if master is in the same room
+    .tmp.mob.getKillerHere = function(killer) {
+	if (killer == null || !.tmp.mob.valid(killer)) return null;
+	if (!killer.is_npc()) return killer;
+	if (.tmp.mob.masterHere(killer)) return killer.master;
+
+	return killer;
     };
     
     // Auto-cast spells onSpec only if everyone's is fighting in the same room
@@ -612,6 +631,15 @@
 		&& !(ch.master.fighting.off_flags & .tables.off_flags.area_attack));
     };
 
+    .tmp.mob.get_obj_behavior = function(mob, bhv) {
+	for (i in mob.inventory) {
+	    if (i.in_obj != null) continue;
+	    if (i.hasBehavior(bhv)) return i;
+	}
+		
+	return null;
+    };
+    
     .tmp.mob.sameAlign = function(ch, vict) {
 	return (   (ch.good && vict.good) 
 		|| (ch.neutral && vict.neutral)
@@ -623,4 +651,153 @@
 		|| (ch.evil && vict.good));
     };
     
+    // Mob attempts to remove and drop burning/heated item, gets damage
+    // Visualize removal/dropping/damage, return damage
+    // Apply damage outside if apply_damage is false
+    .tmp.mob.burnByItem = function(ch, obj, apply_damage) {
+	if (!.tmp.mob.valid(ch) || !.tmp.object.valid(obj)) return 0;
+	if (ch.isImmune("fire", "")) return 0;
+	if (.tmp.player.ghost(ch) || .tmp.player.protected(ch)) return 0;
+	
+	var iaff; iaff = .Affect();	
+	var fire_power; fire_power = 1;
+	// find if obj is heated -- if not, it's burning
+	if (obj.isAffected("incandescent")) {
+	    for (a in obj.affected) 
+		if (a.type == "incandescent") iaff = a;
+	    fire_power = .max(1, iaff.duration);
+	    
+	    if (ch.isAffected("protection heat")) 
+		return 0; // No heat damage if ch is protected
+	} 
+	// damage from open fire, not heat, so no protection
+	else if (.tmp.object.canBurn(obj)) 
+	    fire_power = .max(1, obj.material.burns); 
+	    
+	var remove, drop, dam;
+	// dex increases the chance to remove on time to reduce damage
+	// heavy weight reduces the chance to remove
+	remove = .number_range(1, 20) + (ch.cur_dex - 20) * 2;
+	remove = .max(1, remove - .number_range(1, obj.weight/10));
+	// CON decreases chances to drop (resist pain)
+	drop = .number_range(1, 20) + (ch.cur_con - 20) * 2 + obj.weight/10;
+	
+	if (obj.carried_by == ch)
+	    dam = .dice(.number_range(obj.level / 2, obj.level), fire_power * 2);
+	else dam = ch.max_hit / 100; // quick burn
+	
+	// If ch removes item --> dam/2		
+	if (obj.carried_by == ch && obj.worn && .tmp.object.canRemove(obj) && .chance(remove) && obj.remove()) {
+	    ch.act("Ты едва успеваешь содрать с себя раскаленн%1$Gое|ый|ую|ые %1$O4!", obj);
+	    ch.recho("%2$^C1 едва успева%2$nет|ют содрать с себя раскаленн%1$Gое|ый|ую|ые %1$O4!", obj, ch);
+	    dam = dam / 2;
+	}
+	
+	// If removes and drops --> no damage
+	if (obj.carried_by == ch && !obj.worn && ch.can_drop_obj(obj) && .chance(drop)) {
+	    dam = 0;
+	    .tmp.object.dropObj(ch, obj, true, null); 
+	    // Update incandescent after dropping: e.g., cool down by water
+	    if (iaff != null && .tmp.object.valid(obj)) // obj can be sunk after dropping
+		.AffectHandler("incandescent").onUpdateObj(obj, iaff);
+	}
+	
+	if (dam > 0) {
+	    ch.act("Раскаленн%1$Gое|ый|ая|ые %1$O1 обжига%1$nет|ют твою кожу!", obj);
+	    ch.recho("Раскаленн%1$Gое|ый|ая|ые %1$O1 обжига%1$nет|ют кожу %2$C2.", obj, ch);
+	}
+	
+	if (dam > 0 && apply_damage) {
+	    if (iaff != null && iaff.source != null && !iaff.source.is_safe(ch))
+		iaff.damage(ch, dam, iaff.type, "fire", "spell"); // PK damage if possible
+	    else ch.rawdamage(ch, dam, "fire", "self");
+	}
+	
+	return dam;
+    };
+
+    // fire_effect analog from C++: blind, blow gear, but don't damage unless apply_damage
+    // heat items unless heat_items is false
+    // Now depends on fire power, not fire damage dealt
+    .tmp.mob.effectFire = function(ch, fire_power, heat_items, apply_damage) {
+	if (!.tmp.mob.valid(ch)) return;
+	fire_power = .urange(0, fire_power, 10); // cap fire_power at 10
+	var to_save; to_save = .urange(1, 100 - fire_power * 10, 99);
+	var items_affected; items_affected = 0; // capped by fire_power
+	var room; room = ch.in_room;
+
+	// Burn/heat gear first -- so that ch could see it
+	// NB: Immunity to fire or protection prevents damage to ch, not to items
+	for (obj in ch.items) {
+	    if (!heat_items) break;
+	    if (obj.in_obj != null) continue; // ignore items inside containers
+	    // Chance to burn anything depends on fire_power
+	    if (.tmp.chance(to_save, ch)) break;
+	    if (!.tmp.object.applyHeat(obj, null, null, fire_power, false))
+		continue; // didn't affect item? let's try another one
+	    
+	    if (!.tmp.mob.valid(ch)) return; // double-check if ch is still alive
+
+	    if (apply_damage && items_affected >= .urange(1, fire_power / 4, 3)) break;
+	    else if (items_affected >= .urange(1, fire_power / 3, 4)) break; // higher cap for DOT
+	    else items_affected = items_affected + 1;
+	}
+	
+	if (ch.isAffected("protection heat")) return;
+
+	if (ch.isImmune("fire", ""))
+	    return; // no effect if protected
+	
+	// DAMAGE, if applicable -- use for DOT (e.g. heat affect)
+	if (apply_damage) {
+	    var dam; dam = .dice(ch.level, fire_power * 2);
+	    // find if room is heated
+	    var aff; aff = .Affect();	
+	    if (room.isAffected("heat")) {
+		for (a in room.affected) 
+		    if (a.type == "heat") aff = a;
+	    }
+	    if (aff != null && aff.source != null && !aff.source.is_safe(ch))
+		aff.damage(ch, dam, aff.type, "fire", "other"); // PK damage if possible
+	    else ch.rawdamage(ch, dam, "fire", "self");
+	    if (!.tmp.mob.valid(ch)) return; // check if ch is still alive
+	}
+
+	if (ch.isAffected("chill touch") && .chance(50 + fire_power))
+	    ch.affectStrip("chill touch", true); // dispel frostbite
+	    
+	// Heat makes Jack thirsty
+	if (!ch.is_npc()) ch.cond_thirst = ch.cond_thirst + fire_power * 10;
+	
+	if (.tmp.mob.isBlind(ch)
+	    || !(ch.parts & .tables.part_flags.eye) 
+	    || (ch.parts & .tables.part_flags.eyestalks))
+	    return; // can't blind if eyestalks, no eyes, or already blind
+	    
+	if (!ch.saves_spell(ch, fire_power * 10, "fire")) {
+	    ch.act("{WТвои глаза слезятся от раскаленного воздуха. Ты ничего не видишь!{x");
+	    ch.recho("%1$^O1 слепн%1$nет|ут от раскаленного воздуха!", ch);
+	    var af; af = .Affect();
+	    af.type             = "heat";
+	    af.level            = fire_power * 10 + 1;
+	    af.duration         = fire_power/2 + 1;
+	    af.bitvector("affect_flags", "blind");		
+	    af.location         = .tables.apply_flags.hitroll;
+	    af.modifier         = -1 * .max(4, fire_power + 1);
+	    ch.affectAdd(af);
+	}
+	
+	// Check "room temperature", get total fire_power (current fire + new)
+	var room_temperature; room_temperature = fire_power;
+	var fire; fire = room.get_obj_vnum(39001);
+	if (fire != null) room_temperature = room_temperature + .max(4, fire.fire_time / 4);
+	
+	// Create fire or burn the whole room if the temperature is high enough
+	if (.chance(room_temperature)) {
+	    .tmp.object.createFire(room, null, fire_power);
+	    if (room_temperature >= 10 && .tmp.room.canBurn(room))
+		.tmp.room.burn(room, fire_power * 10 + 1, fire_power/2 + 1);
+	}
+
+    };    
 })

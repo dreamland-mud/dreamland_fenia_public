@@ -36,6 +36,7 @@
 	ch.affectAdd(af); // Вешаем аффект-кулдаун на игрока
 	af.location         = .tables.apply_flags.mana_gain;
 	af.modifier         = level * 4;
+	af.source    = ch;
 	room.affectAdd(af);
 	af.location         = .tables.apply_flags.heal_gain;
 	af.modifier         = level * 4;
@@ -48,13 +49,11 @@
 	    ch.act("Ты собирал{Smся{Sfась{x было разжечь костер, но кто-то его уже развел до тебя!"); 
 	    return;
 	}
-
-	ch.act("Ты находишь дерево для растопки костра и быстро разводишь огонь.");
-	ch.recho("%1$^C1 наход%1$nит|ят дерево для растопки костра и быстро развод%1$nит|ят огонь.", ch); 
-
-	// Создаем бревно и разводим из него костер
-	var wood; wood = .get_obj_index(28037).create();
-	.tmp.fire.createFire(ch.in_room, wood, ch);
+	
+	var wood; wood = .get_obj_index(28036).create().obj_to_room(room);
+	ch.act("Ты находишь %1$O4 для растопки костра.", wood);
+	ch.recho("%1$^C1 наход%1$nит|ят %2$O4 для растопки костра.", ch, wood); 
+	.tmp.object.applyHeat(wood, ch, null, -1, true); // guaranteed ignition
     };
 
 })

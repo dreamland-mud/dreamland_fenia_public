@@ -63,7 +63,9 @@
 	return duration * 4;		
     };
 
-    .tmp.time.minutes = null;
+    .tmp.time.minutes = function(duration) {
+	return duration; // 1 minute = 1 tick		
+    };
     
     // These helper functions operate in ticks -- for timers and affects.
     .tmp.time.hours = function(duration) {
@@ -82,6 +84,10 @@
 	return .tmp.time.days(duration * 30);		
     };
 
+    .tmp.time.years = function(duration) {
+	return .tmp.time.months(duration * 12);		
+    };
+    
     // Select an appropriate timer for each weapon tier
     // TO-DO (RUFFINA): read this from fedit weapon_tiers
     .tmp.time.tier = function(tier) {

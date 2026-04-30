@@ -92,7 +92,7 @@
     // Extracts a single russian (1) or english (0) keyword out of a string
     // Used for visualizing interactions with mobs or objects: "order X stand"
     getOneKeyword = function(string, russian) {
-	var list; list = string.split(" ");
+	var list; list = string.arguments();
 	if (list.size() > 0) {
 	    if (russian) {
 		for (l in list)
@@ -118,5 +118,28 @@
     smthCases[5] = "чем-то";
     smthCases[6] = "чём-то";
     
+    // Add this to room affect's onDescr
+    raffectDescr = function(af, msg) {
+	if (af.duration >= 0)
+	    msg = msg + " {D[{yеще " + .fmt("{m%1$d{y час%1$I|а|ов", af.duration) + "{D]{2.{/"; 
+	else msg = msg + " перманентно.{/";
+	return msg;
+    };
+	
+    recolorDescr = function(descr, main_color, accents, accent_chance) {
+	var i, txt; txt = descr.stripTags();
+	var new_descr; new_descr = "";
+	
+	for (i = 0; i < txt.size(); i=i+1) {
+	    if (txt.at(i).isCyrillic()) {
+		if (.chance(accent_chance))
+		    new_descr = new_descr + .fmt("{%s", accents.split(",").random());
+		else new_descr = new_descr + .fmt("{%s", main_color);
+	    }
+	    new_descr = new_descr + txt.at(i);
+	}
+	return new_descr.format(80) + "{x";	    
+    };
+
 })
 
