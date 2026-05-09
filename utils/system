@@ -9,12 +9,28 @@
 
     sleep = function (t) {
 	var i;
-	
-	for (i = 0; i < t; i = i + 1) 
-	    .scheduler.yield(); 
+
+	for (i = 0; i < t; i = i + 1)
+	    .scheduler.yield();
     };
 
-    
+    // Sleep `t` ticks, then re-validate `ch`. Returns true if the caller
+    // should keep going, false if `ch` is no longer reachable (extracted,
+    // disconnected, etc.) and the caller should `return` immediately.
+    //
+    // Designed for cinematics, quest scripts, and rituals where each stage
+    // is meaningless once the player has dropped. Replaces the inline
+    //   .tmp.system.sleep(N);
+    //   if (!.tmp.mob.valid(ch) || !ch.online) return;
+    // boilerplate with one call.
+    sleep_online = function(ch, t) {
+	sleep(t);
+	if (!.tmp.mob.valid(ch)) return false;
+	if (!ch.online) return false;
+	return true;
+    };
+
+
 
     /*
      * schedules extraction to occur in the next tick
