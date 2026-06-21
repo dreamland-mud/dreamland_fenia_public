@@ -1,19 +1,7 @@
 .apply(function () {
 
-    // Стражник северных ворот
-    .get_mob_index(3067).onBribe = function(mob, ch, gold, silver) {
-	var amount; amount = gold * 100 + silver;
-
-	if (amount < 50) {
-	    mob.say("Такие гроши?! Это оскорбление чести моего мундира!");
-	    if (!mob.is_safe(ch)) mob.one_hit(ch); // Напасть, если возможно
-	}
-	else if (amount >= 1000) {
-	    mob.interpret("smile");
-	    mob.interpret("sleep");
-	}
-	else mob.say("Меньше чем за тысячу серебряных я и усом шевелить не стану.");
-    };
+    // North gate guard's bribe handling now lives in the 'cityguard' behavior
+    // (behaviors/cityguard/onBribe), assigned to mob 3067 in the area XML.
 
     // Валькирия
     .get_mob_index(3076).onGreet = function(mob, ch) {
