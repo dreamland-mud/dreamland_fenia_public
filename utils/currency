@@ -2,6 +2,17 @@
     if (.tmp.currency == null)
 	.tmp.currency = .Map();
 
+    // Migration cleanup: the Currency/Gold/Silver/Item/Price/QuestPoints classes
+    // moved into the roulette engine (dreamland_fenia/utils/roulette), the only
+    // code that ever used them. Annul the orphaned bindings so reposting this
+    // file doesn't mismatch and duplicate the script. Idempotent.
+    .tmp.currency.Currency = null;
+    .tmp.currency.Gold = null;
+    .tmp.currency.Silver = null;
+    .tmp.currency.Item = null;
+    .tmp.currency.Price = null;
+    .tmp.currency.QuestPoints = null;
+
     //////////////////////////////////////////////////
     ////// Main helpers for currency operations //////
     ////// Support gold, silver and qp          //////
