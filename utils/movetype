@@ -1,0 +1,17 @@
+.apply(function() {
+
+    if (.tmp.movetype == null) .tmp.movetype = .Map();
+
+    // Shared per-movetype hazard modifier, in percentage points.
+    // The engine hands every room Dive trigger a 0..4 danger tier derived from
+    // how the character entered (movetypes.cpp): slink=0, crawl=1,
+    // walk/swim/fly=2 (normal), quickly/riding=3, running/flee=4.
+    // We center the curve on normal(2): moving more carefully than normal
+    // lowers the odds, recklessness raises them, +-20 points per tier.
+    // Both the falling "trap" and the "deathtrap" behaviors consult this so the
+    // movetype curve lives in exactly one place.
+    .tmp.movetype.dangerMod = function(danger) {
+	return 20 * (danger - 2);
+    };
+
+})

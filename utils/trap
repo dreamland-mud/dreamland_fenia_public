@@ -48,11 +48,6 @@
 	if (ch.flying && trap.flyingSafe) 
 	    return false;
 
-	// Best move for this trap, set to 2, 'movetype normal'.
-	// Move this var to behavior properties if want to override it for
-	// each trap.
-	var optimalMove; optimalMove = 2;
-	
 	// Trap surfaceQuality defaults to 50.
 	// Quality 100 would mean trap never works for normal movetype
 	// and only reacts to running/fighting. Quality 0 means trap
@@ -60,7 +55,8 @@
 
 	// Your chances at avoiding the trap are better if you move
 	// more carefully than normal (i.e. with movedanger 1 or 0).
-	var chance; chance = 20 * (movedanger - optimalMove);
+	// Shared movetype curve: +-20 points per danger tier, centered on normal.
+	var chance; chance = .tmp.movetype.dangerMod(movedanger);
 	
 	// Roll the die. For normal move, 50% to avoid the trap;
 	// for running/fighting chances are decreased by 20%.
