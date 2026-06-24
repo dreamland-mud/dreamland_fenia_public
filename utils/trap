@@ -33,6 +33,16 @@
 		targetRoom, ch, 
 		trap.msgMoveOther, trap.msgMoveSelf + "\r\n",
 		trap.msgTargetOther, trap.msgTargetSelf);
+
+	    // Fall damage on landing -- a "level die", level d(dmgPerLevel) of bash,
+	    // matching the deathtrap behavior non-lethal branch: a survivable fall
+	    // still hurts and scales with the victim level. Opt-in via dmgPerLevel --
+	    // traps that only relocate leave it unset and deal nothing. If the fall
+	    // damage itself kills, the "room" reason renders the death message right.
+	    if (trap.dmgPerLevel != null) {
+		var dt; dt = trap.damtype; if (dt == null) dt = "bash";
+		ch.rawdamage(ch, .dice(ch.level, trap.dmgPerLevel), dt, "room");
+	    }
 	}
     };
 
