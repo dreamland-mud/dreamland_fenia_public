@@ -34,6 +34,17 @@
 		ch.raw_kill(-1, ch, "room");
 
 	} else {
+	    // Falling can't shove a non-flyer UP into open air out of solid ground
+	    // or water: allow air->air and air->ground drops, but block (non-air)->air
+	    // for the unwinged -- they stay put and face the source room itself (so a
+	    // drowning underwater "fall spot" keeps a non-flyer to drown, while a flyer
+	    // is carried on through).
+	    if (ch.in_room != null
+		&& ch.in_room.sector_type != .tables.sector_table.air
+		&& targetRoom.sector_type == .tables.sector_table.air
+		&& !ch.flying)
+		return;
+
 	    ch.transfer(
 		targetRoom, ch,
 		trap.msgMoveOther, trap.msgMoveSelf + "\r\n",
