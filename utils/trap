@@ -26,11 +26,16 @@
 	if (targetRoom == null) {
 	    ch.act(trap.msgMoveSelf, ch);
 	    ch.recho(trap.msgMoveOther, ch);
-	    ch.raw_kill(-1, ch, "room");
-	    
+	    // Immortals walk the mechanic to test it, but a fall never kills
+	    // them: show the would-be-fatal impact instead of raw_kill.
+	    if (ch.is_immortal())
+		ch.act("Будь ты смертным, удар о землю стал бы последним.", ch);
+	    else
+		ch.raw_kill(-1, ch, "room");
+
 	} else {
 	    ch.transfer(
-		targetRoom, ch, 
+		targetRoom, ch,
 		trap.msgMoveOther, trap.msgMoveSelf + "\r\n",
 		trap.msgTargetOther, trap.msgTargetSelf);
 
@@ -40,8 +45,13 @@
 	    // traps that only relocate leave it unset and deal nothing. If the fall
 	    // damage itself kills, the "room" reason renders the death message right.
 	    if (trap.dmgPerLevel != null) {
-		var dt; dt = trap.damtype; if (dt == null) dt = "bash";
-		ch.rawdamage(ch, .dice(ch.level, trap.dmgPerLevel), dt, "room");
+		// Immortals feel the mechanic but take no real fall damage.
+		if (ch.is_immortal()) {
+		    ch.act("Будь ты смертным, падение причинило бы тебе боль.", ch);
+		} else {
+		    var dt; dt = trap.damtype; if (dt == null) dt = "bash";
+		    ch.rawdamage(ch, .dice(ch.level, trap.dmgPerLevel), dt, "room");
+		}
 	    }
 	}
     };
@@ -49,9 +59,10 @@
     // Called from onDive to see if ch got into this trap.
     // onDive is called if ch enters the room or every 4 seconds when fighting.
     .tmp.trap.matches = function(ch, trap, movedanger) {
-	if (ch.is_immortal()) return false;
+	// Immortals are deliberately caught so the fall mechanic stays testable;
+	// .tmp.trap.work suppresses the actual death/damage for them (flavour only).
 
-	if (!ch.is_npc() && .tmp.player.ghost(ch)) 
+	if (!ch.is_npc() && .tmp.player.ghost(ch))
 	    return false;
 
 	// Most traps (except for a few in New Thalos) don't capture flying folks.
