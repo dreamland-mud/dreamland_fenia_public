@@ -34,13 +34,13 @@
 		ch.raw_kill(-1, ch, "room");
 
 	} else {
-	    // Falling can't shove a non-flyer UP into open air out of solid ground
-	    // or water: allow air->air and air->ground drops, but block (non-air)->air
-	    // for the unwinged -- they stay put and face the source room itself (so a
-	    // drowning underwater "fall spot" keeps a non-flyer to drown, while a flyer
-	    // is carried on through).
+	    // A non-flyer can fall off solid ground INTO the air (a normal plunge),
+	    // but can't rise UP out of water into the open air without wings: block
+	    // water->air for the unwinged so they stay submerged and face the source
+	    // room itself (a drowning underwater "fall spot" keeps them under to
+	    // drown), while a flyer is carried on through. Land->air falls are fine.
 	    if (ch.in_room != null
-		&& ch.in_room.sector_type != .tables.sector_table.air
+		&& ch.in_room.isWater()
 		&& targetRoom.sector_type == .tables.sector_table.air
 		&& !ch.flying)
 		return;
