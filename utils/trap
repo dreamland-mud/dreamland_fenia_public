@@ -83,7 +83,9 @@
 	    return false;
 
 	// Most traps (except for a few in New Thalos) don't capture flying folks.
-	if (ch.flying && trap.flyingSafe) 
+	// == true: flyingSafe is optional, so unset reads as NONE -- a bare
+	// 'ch.flying && trap.flyingSafe' throws "expected boolean got NONE" for a flyer.
+	if (ch.flying && trap.flyingSafe == true)
 	    return false;
 
 	// Trap surfaceQuality defaults to 50.
