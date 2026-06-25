@@ -76,10 +76,12 @@
 	if (!ch.is_npc() && .tmp.player.ghost(ch))
 	    return false;
 
-	// 'detect trap' lets a player spot and step around set/falling traps
-	// entirely. Silent here -- the detect-trap warning handler does the
-	// talking; the trap stays armed for less wary travellers.
-	if (!ch.is_npc() && ch.isAffected("detect trap"))
+	// 'detect trap' lets a player spot and step around a trap they can SEE --
+	// a tripwire, a pit, a slick ledge. It cannot cheat gravity, though: an
+	// open-sky tile still drops a wingless walker (the warning just reminds
+	// them to fly). Silent otherwise; the trap stays armed for less wary folk.
+	if (!ch.is_npc() && ch.isAffected("detect trap")
+	    && (ch.in_room == null || ch.in_room.sector_type != .tables.sector_table.air))
 	    return false;
 
 	// Most traps (except for a few in New Thalos) don't capture flying folks.
@@ -122,19 +124,24 @@
     };
 
     // Category of hazard a hunter's 'detect trap' sense would prickle at in the
-    // room, or "" for none. "fall" = a slip-and-fall tile (the .tmp.trap
-    // falling/diving mechanic, props.trap -- you lose your footing and drop);
-    // "trap" = a set trap or hostile cloud (the thief trap plus the
-    // mist/venom/ward room-affect family) or a lethal death tile (props.deathtrap).
-    // Config lives in the room's props (rooms are not instanced). The detect-trap
-    // proximity warning picks its wording from this category.
+    // room, or "" for none. "air" = an open-sky tile that drops a wingless
+    // walker from the heavens (the .tmp.trap mechanic on an air sector -- you
+    // can't slip, there's no ground, you just fall); "fall" = a solid-ground
+    // slip-and-fall tile (props.trap, a pit or slick ledge); "trap" = a set trap
+    // or hostile cloud (the thief trap plus the mist/venom/ward room-affect
+    // family) or a lethal death tile (props.deathtrap). Config lives in the
+    // room's props (rooms are not instanced). The detect-trap proximity warning
+    // picks its wording from this category.
     .tmp.trap.roomHazard = function(room) {
 	if (room == null)
 	    return "";
 
 	if (room.props != null) {
-	    if (room.props.trap != null)
+	    if (room.props.trap != null) {
+		if (room.sector_type == .tables.sector_table.air)
+		    return "air";
 		return "fall";
+	    }
 	    if (room.props.deathtrap != null)
 		return "trap";
 	}
