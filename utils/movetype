@@ -14,4 +14,24 @@
 	return 20 * (danger - 2);
     };
 
+    // Signed entry-hazard delta by movetype tier, centered on normal(2):
+    // slink -30, crawl -20, normal 0, quickly +20, running/flee +30.
+    // Positive means a faster/recklessly entry -- more dangerous for placed
+    // traps, but safer for gas/exposure hazards, so the caller picks the sign.
+    // Magnitude is 20 one tier off normal and 30 at two tiers, matching the
+    // 20-30% design. Used by .tmp.spell.canGetRoomAffect as the on-entry dodge.
+    .tmp.movetype.entryShift = function(danger) {
+	var d; d = danger - 2;
+	if (d == 0)
+	    return 0;
+	var mag;
+	if (d == 1 || d == -1)
+	    mag = 20;
+	else
+	    mag = 30;
+	if (d < 0)
+	    return -1 * mag;
+	return mag;
+    };
+
 })
