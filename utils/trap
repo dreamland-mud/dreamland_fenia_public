@@ -67,6 +67,16 @@
 	}
     };
 
+    // True for a non-NPC who senses set/hidden traps: under the 'detect trap'
+    // affect (the hunter clan spell) or carrying the perception skill. The
+    // perception arm is interim -- once the engine auto-applies the 'detect
+    // trap' affect to passive-skill holders (roadmap: passive auto-affects),
+    // the affect check alone covers it and the skill check can drop.
+    .tmp.trap.detects = function(ch) {
+	return !ch.is_npc()
+	    && (ch.isAffected("detect trap") || .Skill("perception").learned(ch) > 0);
+    };
+
     // Called from onDive to see if ch got into this trap.
     // onDive is called if ch enters the room or every 4 seconds when fighting.
     .tmp.trap.matches = function(ch, trap, movedanger) {
@@ -80,7 +90,7 @@
 	// a tripwire, a pit, a slick ledge. It cannot cheat gravity, though: an
 	// open-sky tile still drops a wingless walker (the warning just reminds
 	// them to fly). Silent otherwise; the trap stays armed for less wary folk.
-	if (!ch.is_npc() && ch.isAffected("detect trap")
+	if (.tmp.trap.detects(ch)
 	    && (ch.in_room == null || ch.in_room.sector_type != .tables.sector_table.air))
 	    return false;
 
