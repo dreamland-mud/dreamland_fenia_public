@@ -121,19 +121,23 @@
 	ch.trap = .tables.trap_flags.values(trap.flags);
     };
 
-    // True if the room holds any armed trap or hostile hazard a hunter's
-    // 'detect trap' sense would prickle at: falling/death-trap tiles (config
-    // lives in the room's props, rooms are not instanced) or any of the hostile
-    // entry room-affects (the thief trap plus the mist/venom/ward family). Used
-    // by the detect-trap proximity warning to flag a dangerous neighbouring
-    // room before the player steps into it.
+    // Category of hazard a hunter's 'detect trap' sense would prickle at in the
+    // room, or "" for none. "fall" = a slip-and-fall tile (the .tmp.trap
+    // falling/diving mechanic, props.trap -- you lose your footing and drop);
+    // "trap" = a set trap or hostile cloud (the thief trap plus the
+    // mist/venom/ward room-affect family) or a lethal death tile (props.deathtrap).
+    // Config lives in the room's props (rooms are not instanced). The detect-trap
+    // proximity warning picks its wording from this category.
     .tmp.trap.roomHazard = function(room) {
 	if (room == null)
-	    return false;
+	    return "";
 
-	if (room.props != null
-	    && (room.props.trap != null || room.props.deathtrap != null))
-	    return true;
+	if (room.props != null) {
+	    if (room.props.trap != null)
+		return "fall";
+	    if (room.props.deathtrap != null)
+		return "trap";
+	}
 
 	var names; names = .List();
 	names.push_back("settraps");
@@ -146,11 +150,11 @@
 	names.push_back("cursed lands");
 	names.push_back("evil spirit");
 
-	var found; found = false;
+	var found; found = "";
 	var n;
 	for (n in names) {
-	    if (!found && room.isAffected(n))
-		found = true;
+	    if (found == "" && room.isAffected(n))
+		found = "trap";
 	}
 	return found;
     };
