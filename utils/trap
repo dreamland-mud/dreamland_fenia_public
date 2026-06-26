@@ -45,19 +45,53 @@
 		&& !ch.flying)
 		return;
 
+	    // If the landing spot is ITSELF a fall trap, the victim is still in
+	    // mid-air over a stacked air column (armageddon's heavens, the aarakocra
+	    // eyrie) and will tumble out of it. Hold the ground-impact lines and the
+	    // fall damage back for the FINAL room -- real ground or water with no
+	    // trap -- so a multi-room descent reads as one continuous fall and hurts
+	    // once, not once per layer. (No-op for single-hop traps landing straight
+	    // on solid ground, and for the hut/canyon chains that already leave their
+	    // intermediate impact messages empty.)
+	    var nextTrap; nextTrap = null;
+	    if (targetRoom.props != null)
+		nextTrap = targetRoom.props.trap;
+
+	    var tSelf; var tOther;
+	    if (nextTrap != null) {
+		tSelf = "";
+		tOther = "";
+	    } else {
+		tSelf = trap.msgTargetSelf;
+		tOther = trap.msgTargetOther;
+	    }
+
 	    ch.transfer(
 		targetRoom, ch,
 		trap.msgMoveOther, trap.msgMoveSelf + "\r\n",
-		trap.msgTargetOther, trap.msgTargetSelf);
+		tOther, tSelf);
 
-	    // Fall damage on landing -- a "level die", level d(dmgPerLevel) of bash,
-	    // matching the deathtrap behavior non-lethal branch: a survivable fall
-	    // still hurts and scales with the victim level. Opt-in via dmgPerLevel --
-	    // traps that only relocate leave it unset and deal nothing. If the fall
-	    // damage itself kills, the "room" reason renders the death message right.
-	    if (trap.dmgPerLevel != null) {
-		// Immortals feel the mechanic but take no real fall damage.
+	    if (nextTrap != null) {
+		// Keep plummeting at full speed: re-arm the fall in the new room so
+		// the very NEXT pulse carries the victim one room further down, instead
+		// of idling a pulse for the room's standing re-capture (which would also
+		// re-print the trap message every layer). Falls must feel fast. Safe
+		// against runaway -- each room runs its onDiveUpdate at most once per
+		// pulse, and fall chains are acyclic and end on solid ground (the same
+		// guarantee the plain target relocate already relies on).
+		var ds; ds = nextTrap.divingSpeed; if (ds == null) ds = 1;
+		ch.death_ground_delay = ds;
+		var fl; fl = nextTrap.flags; if (fl == null) fl = "";
+		ch.trap = .tables.trap_flags.values(fl);
+
+	    } else if (trap.dmgPerLevel != null) {
+		// Fall damage on the final impact only -- a "level die", level
+		// d(dmgPerLevel) of bash, matching the deathtrap non-lethal branch: a
+		// survivable fall still hurts and scales with the victim level. Opt-in
+		// via dmgPerLevel; relocate-only traps leave it unset and deal nothing.
+		// The "room" reason renders the death message right if it proves lethal.
 		if (ch.is_immortal()) {
+		    // Immortals feel the mechanic but take no real fall damage.
 		    ch.act("Будь ты смертным, падение причинило бы тебе боль.", ch);
 		} else {
 		    var dt; dt = trap.damtype; if (dt == null) dt = "bash";
