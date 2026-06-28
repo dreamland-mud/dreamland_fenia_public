@@ -294,27 +294,8 @@
 	}
     };
 
-    // Дворник
-    .get_mob_index(3061).onArea = function(mob) {
-	if (.tmp.mob.canActAmbient(mob) && .tmp.mob.canSpeak(mob) && .chance(10)) {
-	    mob.interpret("grumble");
-	    mob.say("Как все запущено...");
-
-	    if (.chance(20)) { // С вероятностью ворчит все больше и больше
-		mob.say("Каждый день мусорят и мусорят...");
-		mob.say("А мне убирать за всеми... Надоело!!!");
-		if (.chance(20))
-		    mob.say("И к тому же мне за это не платят.");
-		else if (.chance(20)) {
-		    mob.say("День пришел. День ушел.");
-		    mob.say("Круглые сутки только и делай, что убирай чужой мусор.");
-		    if (.chance(10))
-			mob.interpret_raw("yell", "Ищу другую работу!");
-		}
-	    }
-	    return true;
-	}
-	return false;
-    };
+    // Дворник (3061): grumbling now lives in the shared 'janitor' behavior
+    // (behaviors/janitor/onArea), assigned to mob 3061 in the area XML, along
+    // with the trash-pickup onSpec. Old prototype onArea annulled on deploy.
 
 })
