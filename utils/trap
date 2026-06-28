@@ -101,19 +101,40 @@
 	}
     };
 
-    // True for a non-NPC who senses set/hidden traps: under the 'detect trap'
-    // affect (the hunter clan spell) or carrying the perception skill. The
-    // perception arm is interim -- once the engine auto-applies the 'detect
-    // trap' affect to passive-skill holders (roadmap: passive auto-affects),
-    // the affect check alone covers it and the skill check can drop.
-    .tmp.trap.detects = function(ch) {
-	return !ch.is_npc()
-	    && (ch.isAffected("detect trap") || .Skill("perception").learned(ch) > 0);
+    // True for a non-NPC who senses a trap in time to deal with it. The hunter
+    // 'detect trap' spell is a paid guarantee (always senses, trains nothing).
+    // Otherwise it is the perception skill rolled as a chance that scales with
+    // the trained percent -- the keener the eye, the more reliably.
+    //
+    // train=true is passed by the discrete entry checks (a room entry): they
+    // roll luck-aware and let the skill improve. The recurring onDiveUpdate poll
+    // passes no train flag, so a standing victim re-rolls each pulse WITHOUT
+    // grinding the skill or spamming luck flavour. Once the engine auto-applies
+    // the 'detect trap' affect to passive-skill holders (roadmap: passive
+    // auto-affects), the affect check alone covers it and this can drop.
+    .tmp.trap.detects = function(ch, train) {
+	if (ch.is_npc())
+	    return false;
+
+	if (ch.isAffected("detect trap"))
+	    return true;
+
+	var skill; skill = .Skill("perception");
+	if (!skill.usable(ch))
+	    return false;
+
+	if (train == true) {
+	    var ok; ok = .tmp.chance(skill.effective(ch), ch);
+	    skill.improve(ch, ok);
+	    return ok;
+	}
+
+	return .chance(skill.effective(ch));
     };
 
     // Called from onDive to see if ch got into this trap.
     // onDive is called if ch enters the room or every 4 seconds when fighting.
-    .tmp.trap.matches = function(ch, trap, movedanger) {
+    .tmp.trap.matches = function(ch, trap, movedanger, train) {
 	// Immortals are deliberately caught so the fall mechanic stays testable;
 	// .tmp.trap.work suppresses the actual death/damage for them (flavour only).
 
@@ -124,8 +145,8 @@
 	// a tripwire, a pit, a slick ledge. It cannot cheat gravity, though: an
 	// open-sky tile still drops a wingless walker (the warning just reminds
 	// them to fly). Silent otherwise; the trap stays armed for less wary folk.
-	if (.tmp.trap.detects(ch)
-	    && (ch.in_room == null || ch.in_room.sector_type != .tables.sector_table.air))
+	if ((ch.in_room == null || ch.in_room.sector_type != .tables.sector_table.air)
+	    && .tmp.trap.detects(ch, train))
 	    return false;
 
 	// Most traps (except for a few in New Thalos) don't capture flying folks.
