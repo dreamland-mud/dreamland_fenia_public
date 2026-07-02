@@ -66,8 +66,20 @@
 	    result = result * x;
 	return result;
     };
-    
-    
+
+    // Pick a message template for the viewer's language. lang: 0=EN, 1=RU, 2=UA
+    // (matches ch.displayLang / Player::displayLang). Mirrors the C++ lmsg() so
+    // Fenia frame code stops hand-rolling if/else chains; migrates mechanically
+    // to Ruffina's ._() when the TranslationManager lands. If a template carries
+    // %N$ placeholders, all three MUST reference the same set (the same act args
+    // are passed regardless of language) -- lint via scripts/lint-lmsg.py.
+    lmsg = function(lang, en, ru, ua) {
+	if (lang == 0) return en;
+	if (lang == 2) return ua;
+	return ru;
+    };
+
+
     /*
      * transforms list (a1, a2, ... an) into the string "a1, a2, ... , an"
      */
