@@ -116,7 +116,27 @@
 	}
 	return str;
     };
-    
+
+    /*
+     * Like concatCommaAnd, but the final joiner follows the viewer language
+     * (en " and ", ru " и ", ua " і "). Use in localized (lmsg) output.
+     */
+    concatCommaAndL = function(msgs, lang) {
+	var m, str;
+
+	m = msgs.clone();
+	str = "";
+
+	for (;m.size() != 0;) {
+	    str = str + m.front();
+	    m.pop_front();
+
+	    if (m.size() == 1)     str = str + .tmp.system.lmsg(lang, " and ", " и ", " і ");
+	    else if (m.size() > 1) str = str + ", ";
+	}
+	return str;
+    };
+
     // Extracts a single russian (1) or english (0) keyword out of a string
     // Used for visualizing interactions with mobs or objects: "order X stand"
     getOneKeyword = function(string, russian) {
