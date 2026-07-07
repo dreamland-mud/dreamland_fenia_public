@@ -1,21 +1,21 @@
 .apply(function() {
     .SkillCommand("camp").run = function() {
 	if (ch.isAffected(skill.name)) {
-	    ch.act("Ты пока не можешь разбить лагерь, подожди немного.");
+	    ch.act(._("Ты пока не можешь разбить лагерь, подожди немного."));
 	    return;
 	}
 	var room; room = ch.in_room;
 	if (!room.isNature()) {
-	    ch.act("Разбить полевой лагерь можно только на лоне природы.");
+	    ch.act(._("Разбить полевой лагерь можно только на лоне природы."));
 	    return;        
 	}
 	if (room.isAffected(skill.name)) {
-	    ch.act("Здесь уже разбит полевой лагерь.");
+	    ch.act(._("Здесь уже разбит полевой лагерь."));
 	    return;
 	}	
     
 	if (!.chance(skill.effective(ch))) {
-	    ch.act("Ты пытаешься разбить лагерь, но у тебя ничего не получается.");
+	    ch.act(._("Ты пытаешься разбить лагерь, но у тебя ничего не получается."));
 	    skill.improve(ch, false);
 	    return;        
 	}
@@ -42,17 +42,17 @@
 	af.modifier         = level * 4;
 	room.affectAdd(af);	// Вешаем аффект на комнату
 
-	ch.act("Ты сноровисто разбиваешь полевой лагерь.");
-	ch.recho("%1$^C1 сноровисто разбива%1$nет|ют полевой лагерь.", ch);
+	ch.act(._("Ты сноровисто разбиваешь полевой лагерь."));
+	ch.recho(._("%1$^C1 сноровисто разбива%1$nет|ют полевой лагерь."), ch);
 	
 	if (room.get_obj_vnum(39001) != null) {
-	    ch.act("Ты собирал{Smся{Sfась{x было разжечь костер, но кто-то его уже развел до тебя!"); 
+	    ch.act(._("Ты собирал{Smся{Sfась{x было разжечь костер, но кто-то его уже развел до тебя!")); 
 	    return;
 	}
 	
 	var wood; wood = .get_obj_index(28036).create().obj_to_room(room);
-	ch.act("Ты находишь %1$O4 для растопки костра.", wood);
-	ch.recho("%1$^C1 наход%1$nит|ят %2$O4 для растопки костра.", ch, wood); 
+	ch.act(._("Ты находишь %1$O4 для растопки костра."), wood);
+	ch.recho(._("%1$^C1 наход%1$nит|ят %2$O4 для растопки костра."), ch, wood); 
 	.tmp.object.applyHeat(wood, ch, null, -1, true); // guaranteed ignition
     };
 

@@ -29,12 +29,12 @@
 	if (room.isAffected("heat")) return;
 	
 	if (!room.isOutside())
-	    room.echo("{RВ замкнутом пространстве вокруг тебя начинается пожар! Беги!{x");
+	    room.echo(._("{RВ замкнутом пространстве вокруг тебя начинается пожар! Беги!{x"));
 	else if (room.sector_type == .tables.sector_table.forest) 
-	    room.echo("{RДеревья вокруг тебя внезапно охватывает гудящее пламя -- начинается пожар!{x");
+	    room.echo(._("{RДеревья вокруг тебя внезапно охватывает гудящее пламя -- начинается пожар!{x"));
 	else if (room.sector_type == .tables.sector_table.city)    
-	    room.echo("{RУлицы и дома вокруг занимаются огнем -- начинается пожар!{x");
-	else room.echo("{RВся окружающая местность вспыхивает -- начинается пожар!{x");
+	    room.echo(._("{RУлицы и дома вокруг занимаются огнем -- начинается пожар!{x"));
+	else room.echo(._("{RВся окружающая местность вспыхивает -- начинается пожар!{x"));
 
 	if (room.isAffected("deforestation"))
 	    room.affectStrip("deforestation", false);
@@ -130,7 +130,7 @@
 	var product;
 	if (.chance(1)) {
 	    product = .get_obj_index(28036).create(); // firewood (rotten tree)
-	    room.echo("Сгнившее дерево падает %1$s, превращаясь в %2$O4!",
+	    room.echo(._("Сгнившее дерево падает %1$s, превращаясь в %2$O4!"),
 		.tmp.room.dropWhere(room), product);
 	}
 	else {
@@ -179,7 +179,7 @@
 	    }
 	    // Softwood/hardwood generic: keep stock short_descr & keyword.
 
-	    room.echo("Дерево с грохотом падает %1$s, превращаясь в %2$O4!",
+	    room.echo(._("Дерево с грохотом падает %1$s, превращаясь в %2$O4!"),
 		.tmp.room.dropWhere(room), product);
 	}
 
