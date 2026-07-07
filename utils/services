@@ -36,7 +36,7 @@
 		servicers.push_back(mob);
 	
 	if (servicers.size() <= 0) {
-	    client.act("Здесь нет никого, кто предоставляет платные услуги.");
+	    client.act(._("Здесь нет никого, кто предоставляет платные услуги."));
 	    return null;
 	}
 	// When ch requests services w/o argument, all servicers will list services
@@ -47,7 +47,7 @@
 		    s.trigger("Heal", client, argument);
 	    }
 	    if (.Skill("haggle").usable(client)) // visualize potential haggle
-		client.act("Тебе доступно умение {hh694торговли{x -- ты попробуешь сбить цену в момент покупки.");
+		client.act(._("Тебе доступно умение {hh694торговли{x -- ты попробуешь сбить цену в момент покупки."));
 
 	    return null;
 	}
@@ -60,12 +60,12 @@
 	if (!.tmp.mob.valid(client)) return false; // sanity check
 	
 	if (!.tmp.mob.canActAmbient(mob)) {
-	    client.act("Кажется, %1$C3 сейчас не до услуг, %1$P1 не смо%1$nжет|гут тебе помочь.", mob);
+	    client.act(._("Кажется, %1$C3 сейчас не до услуг, %1$P1 не смо%1$nжет|гут тебе помочь."), mob);
 	    return false;
 	}
 	
 	if (!.tmp.mob.canSpeak(mob)) {
-	    client.act("Похоже, %1$C1 не мо%1$nжет|гут произнести ни слова.", mob);
+	    client.act(._("Похоже, %1$C1 не мо%1$nжет|гут произнести ни слова."), mob);
 	    return false;		    
 	}
 	
@@ -138,11 +138,11 @@
 	services = .tmp.mob.getServices(mob);
 	if (services == null || services.size() <= 0) return;
 	
-	client.act("Ты обращаешься за услугами к %C3.", mob);
-	client.rvecho(mob, "%1$^C1 обраща%1$nется|ются за услугами к %2$C3.", client, mob);
-	mob.act("%1$^C1 обраща%1$nется|ются к тебе за услугами.", client, mob);
+	client.act(._("Ты обращаешься за услугами к %C3."), mob);
+	client.rvecho(mob, ._("%1$^C1 обраща%1$nется|ются за услугами к %2$C3."), client, mob);
+	mob.act(._("%1$^C1 обраща%1$nется|ются к тебе за услугами."), client, mob);
 	
-	mob.say("Я предоставляю такие услуги:");
+	mob.say(._("Я предоставляю такие услуги:"));
 	for (s in services) {
 	    var msg; msg = "";
 	    msg = .fmt("   {yуслуга %-18N1{x", s.nameRus);
@@ -234,13 +234,13 @@
 	    // In case of errors pass on service.no_target, visualize in core command
 	    else { 
 		if (target == "") {
-		    mob.say("Для какого именно предмета тебе нужна услуга {1{G%N2?{2", service.nameRus);
+		    mob.say(._("Для какого именно предмета тебе нужна услуга {1{G%N2?{2"), service.nameRus);
 		    service.no_target = true;
 		    return service;		        
 		}
 		var object; object = client.get_obj_carry(target, mob);
 		if (object == null) {
-		    mob.say("Я не вижу у тебя предмета под названием {1{G%s.{x{2", target);
+		    mob.say(._("Я не вижу у тебя предмета под названием {1{G%s.{x{2"), target);
 		    service.no_target = true;
 		    return service;
 		}
@@ -252,7 +252,7 @@
 	
 	if (service.target == "string") {
 	    if (target == "") {
-		mob.say("На что именно ты хочешь использовать услугу {1{G%N2?{2 Укажи цель.", service.nameRus);
+		mob.say(._("На что именно ты хочешь использовать услугу {1{G%N2?{2 Укажи цель."), service.nameRus);
 		service.no_target = true;
 		return service;		        
 	    }
@@ -263,7 +263,7 @@
 	if (service.name == "horseshoe" && target != "") {
 	    var horseshoe; horseshoe = client.get_obj_carry(target, mob);
 	    if (horseshoe == null) {
-		mob.say("Я не вижу у тебя подков под названием {1{G%s.{x{2", target);
+		mob.say(._("Я не вижу у тебя подков под названием {1{G%s.{x{2"), target);
 		service.no_target = true;
 		return service;
 	    }
@@ -471,16 +471,16 @@
 	if (.tmp.chance(roll, client)) {
 	    new_price = old_price - .div(old_price * roll, 100);
 	    new_price = .max(old_price/2, new_price);
-	    client.act("Ты отчаянно торгуешься с %1$C5, сбивая цену на %2$s.",
+	    client.act(._("Ты отчаянно торгуешься с %1$C5, сбивая цену на %2$s."),
 		mob, .tmp.currency.printMoney(old_price - new_price));
-	    client.recho("%1$^C1 отчаянно торгу%1$nется|ются с %2$C5 -- %1$P3 палец в рот не клади.",
+	    client.recho(._("%1$^C1 отчаянно торгу%1$nется|ются с %2$C5 -- %1$P3 палец в рот не клади."),
 		client, mob);
 	    if (.Skill("haggle").usable(client))
 		.Skill("haggle").improve(client, true);
 	}
 	else {
-	    client.act("Ты пытаешься торговаться с %1$C5, но %1$P2 на мякине не проведешь.", mob);
-	    client.recho("%1$^C1 пыта%1$nется|ются торговаться с %2$C5, но %2$P2 на мякине не проведешь.",
+	    client.act(._("Ты пытаешься торговаться с %1$C5, но %1$P2 на мякине не проведешь."), mob);
+	    client.recho(._("%1$^C1 пыта%1$nется|ются торговаться с %2$C5, но %2$P2 на мякине не проведешь."),
 		client, mob);		    
 	}
 	return new_price;
@@ -489,9 +489,9 @@
     // Mob performs service action for client: casts a spell or executes action
     // Input service as a .Map() with all fields defined at the command level
     .tmp.mob.doService = function(mob, client, service) {
-	client.act("Ты обращаешься за услугой к %C3.", mob);
-	client.rvecho(mob, "%1$^C1 обраща%1$nется|ются за услугой к %2$C3.", client, mob);
-	mob.act("%1$^C1 обраща%1$nется|ются к тебе за услугой.", client, mob);
+	client.act(._("Ты обращаешься за услугой к %C3."), mob);
+	client.rvecho(mob, ._("%1$^C1 обраща%1$nется|ются за услугой к %2$C3."), client, mob);
+	mob.act(._("%1$^C1 обраща%1$nется|ются к тебе за услугой."), client, mob);
 	
 	// For dynamic object services, mob calls out the price in estimateService
 	// Now let's confirm this price with the player
@@ -499,18 +499,18 @@
 	    // If no confirmation requested yet, record service in mob array
 	    if (mob.serviceEstimate == null) mob.serviceEstimate = .Array();
 	    if (mob.serviceEstimate[client.name] == null) {
-		mob.rvecho(client, "%1$^C1 что-то говор%1$nит|ят %2$C3.", mob, client);
+		mob.rvecho(client, ._("%1$^C1 что-то говор%1$nит|ят %2$C3."), mob, client);
 		if (service.name == "repair" && service.repair_list != null) {
-		    mob.psay(client, "Я могу отремонтировать тебе {1{C%1$d{x{2 предмет%1$I|а|ов за %2$s.",
+		    mob.psay(client, ._("Я могу отремонтировать тебе {1{C%1$d{x{2 предмет%1$I|а|ов за %2$s."),
 			service.repair_list.size(), .tmp.currency.printMoney(service.price_silver));
 		}
 		else if (service.object != null)
-		    mob.psay(client, "Исходя из состояния и уровня {1%1$O2{2, услуга %2$N2 на %1$P4 обойдется в %3$s.",
+		    mob.psay(client, ._("Исходя из состояния и уровня {1%1$O2{2, услуга %2$N2 на %1$P4 обойдется в %3$s."),
 			service.object, service.nameRus, .tmp.currency.printMoney(service.price_silver));
-		else mob.psay(client, "Исходя из твоего уровня, услуга %1$N2 обойдется в %2$s.",
+		else mob.psay(client, ._("Исходя из твоего уровня, услуга %1$N2 обойдется в %2$s."),
 			service.nameRus, .tmp.currency.printMoney(service.price_silver));
-		mob.psay(client, "Ты соглас%1$Gен|ен|на? Надо {1{y{hcсказать да{x{2 или просто запросить услугу еще раз.", client);
-		mob.psay(client, "Чтобы отменить, надо {1{y{hcсказать нет{x{2 -- или я просто забуду об этом через 5 минут.");
+		mob.psay(client, ._("Ты соглас%1$Gен|ен|на? Надо {1{y{hcсказать да{x{2 или просто запросить услугу еще раз."), client);
+		mob.psay(client, ._("Чтобы отменить, надо {1{y{hcсказать нет{x{2 -- или я просто забуду об этом через 5 минут."));
 		mob.serviceEstimate[client.name] = service;
 		return false;
 	    }
@@ -529,11 +529,11 @@
 	if (service.spell != null && service.spell != "") {
 	    var sk; sk = .Skill(service.spell); if (sk == null) return;
 	    if (service.behaviors.contains("healer")) {
-		mob.recho("%1$^C1 мол%1$nится|ятся %2$N3.", mob, mob.godName);
+		mob.recho(._("%1$^C1 мол%1$nится|ятся %2$N3."), mob, mob.godName);
 		mob.trigger("Heal", client, service.name);
 	    }
 	    // TO-DO: Refactor with new spell group messages
-	    else mob.recho("%1$^C1 бормоч%1$nет|ут '%2$s'.", 
+	    else mob.recho(._("%1$^C1 бормоч%1$nет|ут '%2$s'."), 
 		mob, sk.name);
 	    
 	    // TO-DO (RUFFINA): add object targets to ch.spell

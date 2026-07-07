@@ -21,8 +21,8 @@
 	    return;
 
 	// Проверить, задано ли у игрока русское имя
-	if (ch.russianName != "") mob.say("Привет, %#N1!", ch.russianName);
-	else mob.say("Привет, %#C1!", ch);
+	if (ch.russianName != "") mob.say(._("Привет, %#N1!"), ch.russianName);
+	else mob.say(._("Привет, %#C1!"), ch);
     };
 
 
@@ -34,11 +34,11 @@
 	    return;
 
 	if (ch.russianName != "")
-	    mob.say("Добро пожаловать в мою лавку, %N1.", ch.russianName);
+	    mob.say(._("Добро пожаловать в мою лавку, %N1."), ch.russianName);
 	else
-	    mob.say("Добро пожаловать в мою лавку, %C1.", ch);
-	mob.say("Чем я могу вас сегодня заинтересовать?");
-	mob.say("У меня в магазине только самые лучшие доспехи.");
+	    mob.say(._("Добро пожаловать в мою лавку, %C1."), ch);
+	mob.say(._("Чем я могу вас сегодня заинтересовать?"));
+	mob.say(._("У меня в магазине только самые лучшие доспехи."));
 	mob.interpret("smile");
     };
 
@@ -50,15 +50,15 @@
 	    return;
 
 	if (ch.russianName != "")
-	    mob.say("Добро пожаловать в мою лавку, %N1.", ch.russianName);
+	    mob.say(._("Добро пожаловать в мою лавку, %N1."), ch.russianName);
 	else
-	    mob.say("Добро пожаловать в мою лавку, %C1.", ch);
+	    mob.say(._("Добро пожаловать в мою лавку, %C1."), ch);
 
     };
 
     .get_mob_index(3002).onArea = function(mob) {
 	if (.tmp.mob.canActAmbient(mob) && .tmp.mob.canSpeak(mob) && .chance(5)) {
-	    mob.say("Чем я могу тебя сегодня заинтересовать?");
+	    mob.say(._("Чем я могу тебя сегодня заинтересовать?"));
 	    return true;
 	}
 
@@ -70,7 +70,7 @@
 	// Если спросить "почему [он плачет]"
 	if (speech.toLower().match("почему|why")) {
 	    if (.tmp.mob.canSpeak(mob))
-		mob.say("Моя подружка Катя оставила меня...");
+		mob.say(._("Моя подружка Катя оставила меня..."));
 	    else mob.interpret("sob");
 	}
     };

@@ -29,7 +29,7 @@
 	    // Immortals walk the mechanic to test it, but a fall never kills
 	    // them: show the would-be-fatal impact instead of raw_kill.
 	    if (ch.is_immortal())
-		ch.act("Будь ты смертным, удар о землю стал бы последним.", ch);
+		ch.act(._("Будь ты смертным, удар о землю стал бы последним."), ch);
 	    else
 		ch.raw_kill(-1, ch, "room");
 
@@ -92,7 +92,7 @@
 		// The "room" reason renders the death message right if it proves lethal.
 		if (ch.is_immortal()) {
 		    // Immortals feel the mechanic but take no real fall damage.
-		    ch.act("Будь ты смертным, падение причинило бы тебе боль.", ch);
+		    ch.act(._("Будь ты смертным, падение причинило бы тебе боль."), ch);
 		} else {
 		    var dt; dt = trap.damtype; if (dt == null) dt = "bash";
 		    ch.rawdamage(ch, .dice(ch.level, trap.dmgPerLevel), dt, "room");

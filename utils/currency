@@ -49,14 +49,14 @@
     .tmp.currency.gainItem = function(ch, vnum, verbose) {
 	var obj; obj = .get_obj_index(vnum).create().obj_to_char(ch);
 	if (verbose)
-	    ch.act("{yВ награду ты получаешь {C%1$O4{y, ништяк!{x", obj);
+	    ch.act(._("{yВ награду ты получаешь {C%1$O4{y, ништяк!{x"), obj);
 	return;
     };
     
     // Receive exp as a reward
     .tmp.currency.gainXP = function(ch, amount, verbose) {
 	if (verbose)
-	    ch.act("{yТы получаешь {G%1$d {yочков опыта!{x", amount);
+	    ch.act(._("{yТы получаешь {G%1$d {yочков опыта!{x"), amount);
 	ch.gainExp(amount);
 	return;
     };
@@ -65,7 +65,7 @@
     .tmp.currency.gainQP = function(ch, amount, verbose) {
 	ch.questpoints = ch.questpoints + amount;
 	if (verbose)
-	    ch.act("{yВ награду ты получаешь {C%1$d {yквестовых единиц, уииии!{x",
+	    ch.act(._("{yВ награду ты получаешь {C%1$d {yквестовых единиц, уииии!{x"),
 		.abs(amount));
 	return;
     };
@@ -76,12 +76,12 @@
 	if (.tmp.currency.canAfford(ch, amount, "qp")) {
 	    ch.questpoints = ch.questpoints - amount;
 	    if (verbose)
-		ch.act("{yТы вздыхаешь, выплачивая {R%1$d {yквестовых очков.{x",
+		ch.act(._("{yТы вздыхаешь, выплачивая {R%1$d {yквестовых очков.{x"),
 		    .abs(amount));
 	    return true;
 	}
 	else if (verbose)
-	    ch.act("{yУ тебя всего {c%1$d {yквестовых очков -- а требуется {C%2$d{y.{x",
+	    ch.act(._("{yУ тебя всего {c%1$d {yквестовых очков -- а требуется {C%2$d{y.{x"),
 		ch.questpoints, .abs(amount));
 	return false;
     };
@@ -146,7 +146,7 @@
 	ch.gold = ch.gold + gold_amount;
 	
 	if (verbose)
-	    ch.act("{yТвой кошелек становится тяжелее на %s.{x",
+	    ch.act(._("{yТвой кошелек становится тяжелее на %s.{x"),
 		.tmp.currency.printGoldSilver(gold_amount, silver_amount, 4));
 	return;
     };
@@ -173,7 +173,7 @@
 	    }
 
 	    if (verbose)
-		ch.act("{yТы вздыхаешь, выплачивая %s.{x",
+		ch.act(._("{yТы вздыхаешь, выплачивая %s.{x"),
 		    .tmp.currency.printGoldSilver(gold_amount, silver_amount, 4));
 	    return;	 	        
 	}
