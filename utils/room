@@ -256,36 +256,37 @@
 	}
     };
 
-    // Returns "на землю" depending on the sector_type for dropped items 
+    // Localizable "onto the ground" phrase for the room's sector. Wrapped in
+    // ._() so room-echo/act %s args resolve per viewer (Trello 2594). Callers
+    // that build strings eagerly with .fmt must use dropWhereRaw() instead.
     .tmp.room.dropWhere = function(room) {
+	return ._(.tmp.room.dropWhereRaw(room));
+    };
+
+    // Raw RU location string picked by sector_type, for eager .fmt-built messages.
+    .tmp.room.dropWhereRaw = function(room) {
 	var msg; msg = "на землю";
 	if (room != null) {
-	    var sect; sect = room.sector_type;
-	    if (room.isWater()) {
-		if (room.liquid != null) {
-		    var liq; liq = room.liquid.short_descr;
-		    if (liq != null && liq != "")
-			msg = .fmt("в %1$N4", liq);
-		    else msg = "в воду";
-		} else msg = "в воду";
-	    }
-	    else if (sect == .tables.sector_table.city) {
-		if (!room.isOutside()) msg = "на пол";
-		else msg = .List().add("на дорогу", "на мостовую", "на брусчатку").random();
-	    }
-	    else if (sect == .tables.sector_table.inside) msg = "на пол";
-	    else if (sect == .tables.sector_table.hills)
-		msg = .List().add("в траву", "на склон холма", "на поросшую травой землю").random();
-	    else if (sect == .tables.sector_table.field)
-		msg = .List().add("в луговую траву", "в цветы и траву", "на поросшую травой землю").random();
-	    else if (sect == .tables.sector_table.forest)
-		msg = .List().add("в траву", "в лесной мох", "на влажную лесную землю").random();
-	    else if (sect == .tables.sector_table.mountain) 
-		msg = .List().add("на камни", "на сухую горную землю").random();
-	    else if (sect == .tables.sector_table.desert) 
-		msg = .List().add("в песок", "на потрескавшуюся от засухи землю").random();
-	    else if (sect == .tables.sector_table.air) msg = "в воздух";
-	}   
+		var sect; sect = room.sector_type;
+		if (room.isWater())
+			msg = "в воду";
+		else if (sect == .tables.sector_table.city) {
+			if (!room.isOutside()) msg = "на пол";
+			else msg = .List().add("на дорогу", "на мостовую", "на брусчатку").random();
+		}
+		else if (sect == .tables.sector_table.inside) msg = "на пол";
+		else if (sect == .tables.sector_table.hills)
+			msg = .List().add("в траву", "на склон холма", "на поросшую травой землю").random();
+		else if (sect == .tables.sector_table.field)
+			msg = .List().add("в луговую траву", "в цветы и траву", "на поросшую травой землю").random();
+		else if (sect == .tables.sector_table.forest)
+			msg = .List().add("в траву", "в лесной мох", "на влажную лесную землю").random();
+		else if (sect == .tables.sector_table.mountain)
+			msg = .List().add("на камни", "на сухую горную землю").random();
+		else if (sect == .tables.sector_table.desert)
+			msg = .List().add("в песок", "на потрескавшуюся от засухи землю").random();
+		else if (sect == .tables.sector_table.air) msg = "в воздух";
+	}
 	return msg;
     };
 

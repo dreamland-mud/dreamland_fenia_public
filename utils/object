@@ -264,9 +264,15 @@
 	}
 	
 	var puddle; puddle = .get_obj_index(75).create();
+	// Fill all three language slots so %O nouns (act/decay/look) localize per
+	// viewer; the prototype (vnum 75) ships "%s" placeholders we substitute here.
 	puddle.short_descr = "луж|а|и|е|у|ей|е " + liq.short_descr.ruscase(2);
+	puddle.setShort("a puddle of " + liq.getShort(0), 0);
+	puddle.setShort("калюж|а|і|і|у|ею|і " + liq.getShort(2).ruscase(2), 2);
 	puddle.description = "{xЛужа " + liq.short_descr.ruscase(2) + " разлита тут.";
-	puddle.name = "puddle лужа " + liquid + " " + liq.short_descr.ruscase(2).stripColour();
+	puddle.setDescr("{xA puddle of " + liq.getShort(0) + " is spilled here.", 0);
+	puddle.setDescr("{xКалюжа " + liq.getShort(2).ruscase(2) + " розлита тут.", 2);
+	puddle.name = "puddle pool лужа калюжа " + liquid + " " + liq.short_descr.ruscase(2).stripColour();
 	puddle.timer = .number_range(1, 3);
 	puddle.value0 = amount;
 	puddle.value1 = amount;
