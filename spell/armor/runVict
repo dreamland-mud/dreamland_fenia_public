@@ -1,8 +1,8 @@
 .Spell("armor").runVict = function() {
     var msg;
     if (vict.isAffected(skill.name)) {
-	if (ch == vict) msg = .fmt("Ты уже под воздействием заклинания брони.", ch);
-	else msg = .fmt("%1$^C1 уже под воздействием заклинания брони.", vict);		
+	if (ch == vict) msg = ch.print(._("Ты уже под воздействием заклинания брони."));
+	else msg = ch.print(._("%1$^C1 уже под воздействием заклинания брони."), vict);
     }
     
     if (msg != null) {

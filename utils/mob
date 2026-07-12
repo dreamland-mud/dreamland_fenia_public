@@ -583,29 +583,29 @@
 	var enemy; enemy = victim.fighting;
 	
 	if (ch.fighting == null)
-	    msg = .fmt("Но ты сейчас не сражаешься!");
+	    msg = ch.print(._("Но ты сейчас не сражаешься!"));
 	else if (victim == null || !ch.can_see_mob(victim))
-	    msg = .fmt("Ты не видишь, кого спасать.");
+	    msg = ch.print(._("Ты не видишь, кого спасать."));
 	else if (enemy == null)
-	    msg = .fmt("Но %1$C1 сейчас не сража%1$nется|ются!", victim);
+	    msg = ch.print(._("Но %1$C1 сейчас не сража%1$nется|ются!"), victim);
 	else if (enemy == ch)
-	    msg = .fmt("Перед тем, как спасать %1$C4, наверное стоит перестать %1$P2 мутузить.", victim);	    
+	    msg = ch.print(._("Перед тем, как спасать %1$C4, наверное стоит перестать %1$P2 мутузить."), victim);
 	else if (ch == victim)
-	    msg = .fmt("Чтобы спасти себя от этого противника, попробуй просто {1{y{hcубежать{x{2.");
+	    msg = ch.print(._("Чтобы спасти себя от этого противника, попробуй просто {1{y{hcубежать{x{2."));
 	else if (!victim.is_npc() && !victim.is_same_group(ch))
-	    msg = .fmt("Чтобы спасать %1$C4, нужно сначала вступить с %1$P5 в группу.", victim);
+	    msg = ch.print(._("Чтобы спасать %1$C4, нужно сначала вступить с %1$P5 в группу."), victim);
 	else if (ch.is_safe(enemy))
-	    msg = .fmt("Ты не можешь вступить в бой против %1$C4.", enemy);
+	    msg = ch.print(._("Ты не можешь вступить в бой против %1$C4."), enemy);
 	else if (!ch.is_npc() && ch.shadow > 0)
-	    msg = .fmt("Эта странная тень не дает тебе понять, кого спасать.");	    
+	    msg = ch.print(._("Эта странная тень не дает тебе понять, кого спасать."));
 	else if (enemy.is_npc() && (enemy.off_flags & .tables.off_flags.area_attack))
-	    msg = .fmt("Отвлечь %1$C4 не выйдет -- %1$P1 атаку%1$nет|ют всех сразу.", enemy);
+	    msg = ch.print(._("Отвлечь %1$C4 не выйдет -- %1$P1 атаку%1$nет|ют всех сразу."), enemy);
 	else if (victim.dead)
-	    msg = .fmt("%^C4 уже поздно спасать.", victim);
+	    msg = ch.print(._("%^C4 уже поздно спасать."), victim);
 	else if (enemy.dead)
-	    msg = .fmt("%^C4 незачем спасать -- %C1 уже труп!", victim, enemy);		    
+	    msg = ch.print(._("%^C4 незачем спасать -- %C1 уже труп!"), victim, enemy);
 	else if (ch.is_npc() && ch.pc != null)
-	    msg = .fmt("В чужом теле спасти никого не получится.");	
+	    msg = ch.print(._("В чужом теле спасти никого не получится."));
 	    
 	if (msg != "") {
 	    if (verbose) {

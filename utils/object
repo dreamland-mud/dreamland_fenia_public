@@ -54,14 +54,14 @@
 	var mname; mname = obj.material.name;
 	if (mname == null) {
 	    obj.getRoom().echo(
-		.fmt("{r[{RБАГ{r]:{x {1%O1:{2 неправильная конфигурация материала, напиши Богам.", obj));
+		._("{r[{RБАГ{r]:{x {1%O1:{2 неправильная конфигурация материала, напиши Богам."), obj);
 	    .discord_wiznet(.fmt("[{WMATERIAL{x]: %O1 {D[%d]{x -- incorrect material", obj, obj.vnum));
 	    return false;
 	}
 	materials = mname.split(", ");
 	if (materials.size() < 1) {
 	    obj.getRoom().echo(
-		.fmt("{r[{RБАГ{r]:{x {1%O1:{2 неправильная конфигурация материала, напиши Богам.", obj));
+		._("{r[{RБАГ{r]:{x {1%O1:{2 неправильная конфигурация материала, напиши Богам."), obj);
 	    .discord_wiznet(.fmt("[{WMATERIAL{x]: %O1 {D[%d]{x -- incorrect material", obj, obj.vnum));
 	    return false;		    
 	}
@@ -71,7 +71,7 @@
 	    var tmp; try { tmp = .Material(m); } catch(e) {.discord_wiznet(e);}
 	    if (tmp == null) {
 		obj.getRoom().echo(
-		    .fmt("{r[{RБАГ{r]:{x {1%O1:{2 неправильная конфигурация материала, напиши Богам.", obj));
+		    ._("{r[{RБАГ{r]:{x {1%O1:{2 неправильная конфигурация материала, напиши Богам."), obj);
 		.discord_wiznet(.fmt("[{WMATERIAL{x]: %O1 {D[%d]{x -- incorrect material", obj, obj.vnum));
 		return false;			        
 	    }
@@ -79,7 +79,7 @@
 	    material = .tmp.object.getMaterialConfig(m);
 	    if (material == null) {
 		obj.getRoom().echo(
-		    .fmt("{r[{RБАГ{r]:{x {1%O1:{2 неправильная конфигурация для материала '{Y%s{x', напиши Богам.", obj, m));
+		    ._("{r[{RБАГ{r]:{x {1%O1:{2 неправильная конфигурация для материала '{Y%s{x', напиши Богам."), obj, m);
 		.discord_wiznet(.fmt("[{WMATERIAL{x]: %O1 {D[%d]{x -- no config for material '{Y%s{x'", obj, obj.vnum, m));
 	    }
 	    else if (material.flags != null && material.flags.contains(flag)) found = true;
