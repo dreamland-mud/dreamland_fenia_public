@@ -53,7 +53,11 @@ copies or substantial portions of the Software.
 	"и", "i",
 	"ъ", "",
 	"ы", "i",
-	"э", "e"
+	"э", "e",
+	"і", "i",
+	"ї", "yi",
+	"є", "ye",
+	"ґ", "g"
     );
     
     reversedFirstLetters1 = .Array().add(
