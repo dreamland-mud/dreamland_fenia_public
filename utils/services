@@ -1,6 +1,17 @@
 .apply(function() {
     if (.tmp.mob == null) .tmp.mob = .Map();
 
+    // A service's name as a per-viewer MultiMessage, declined to case gcase (1-7).
+    // EN uses the caseless internal name ("repair"); RU/UA decline their pads
+    // (nameRus / nameUkr from behaviors/services.json). Pass as a %s act arg so
+    // the service noun resolves in each recipient's language instead of leaking
+    // the RU-declined form ("the починки service" to EN/UA).
+    .tmp.mob.serviceNameMM = function(service, gcase) {
+	return .mm(service.name,
+	    .fmt("%N" + gcase, service.nameRus),
+	    .fmt("%N" + gcase, service.nameUkr));
+    };
+
     ///////////////////////////////////////////////////////////////////////////
     ///////////////////////// SERVICE ARCHITECTURE ////////////////////////////
     ///////////////////////////////////////////////////////////////////////////
@@ -234,7 +245,7 @@
 	    // In case of errors pass on service.no_target, visualize in core command
 	    else { 
 		if (target == "") {
-		    mob.say(._("Для какого именно предмета тебе нужна услуга {1{G%N2?{2"), service.nameRus);
+		    mob.say(._("Для какого именно предмета тебе нужна услуга {1{G%s?{2"), .tmp.mob.serviceNameMM(service, 2));
 		    service.no_target = true;
 		    return service;		        
 		}
