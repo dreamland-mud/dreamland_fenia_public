@@ -268,7 +268,11 @@
 	var msg; msg = "на землю";
 	if (room != null) {
 		var sect; sect = room.sector_type;
-		if (room.isWater())
+		// the intro galleon reads as city-sector, but it's a wooden ship --
+		// a dropped or landed missile ends up on its deck, not "on the pavement"
+		if (room.area != null && room.area.filename == "galeon.are")
+			msg = "на палубу";
+		else if (room.isWater())
 			msg = "в воду";
 		else if (sect == .tables.sector_table.city) {
 			if (!room.isOutside()) msg = "на пол";
