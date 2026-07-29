@@ -80,22 +80,24 @@
 	    return false;		    
 	}
 	
-	var say; say = "";
+	// say holds a ._() multi-language message, not a string, so it starts and is
+	// tested as null -- comparing an OBJECT register against "" would not hold.
+	var say; say = null;
 	if (!mob.can_see_mob(client))
-	    say = "Я не обслуживаю тех, кого не могу разглядеть.";
+	    say = ._("Я не обслуживаю тех, кого не могу разглядеть.");
 	else if (!client.is_npc() && client.charmed)
-	    say = "Я не обслуживаю игроков по чьему-то принуждению.";	
+	    say = ._("Я не обслуживаю игроков по чьему-то принуждению.");	
 	else if (client.dead)
-	    say = "Да по тебе уже могила плачет!";
+	    say = ._("Да по тебе уже могила плачет!");
 	else if (client.is_npc() && client.master == null) {
 	    if (client.pc != null)
-		say = "Сначала вернись в свое собственное тело.";
+		say = ._("Сначала вернись в свое собственное тело.");
 	    else
-		say = "Увы, здесь тебя не обслужат.";             
+		say = ._("Увы, здесь тебя не обслужат.");             
 	}
 	else if (!client.is_npc() && .tmp.player.ghost(client)) // GHOST
-	    say = "Сначала заново обрети плоть -- я не работаю с призраками.";
-	if (say != "") {
+	    say = ._("Сначала заново обрети плоть -- я не работаю с призраками.");
+	if (say != null) {
 	    mob.say(say);
 	    return false;
 	}
