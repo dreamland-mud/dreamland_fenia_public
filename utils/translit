@@ -306,4 +306,35 @@ copies or substantial portions of the Software.
 	return newStr;
   };
 
+    /*
+     * Rewrite the letters Russian does not have into their Russian spelling, so
+     * a Ukrainian name can be carried in the Russian name slot and declined by
+     * inflect_name. Mirror of String::ruLettersToUa on the C++ side.
+     *
+     * Only letters ABSENT from Russian are touched: і ї є ґ, plus the apostrophe,
+     * which Russian writes as ь (Мар'яна -> Марьяна). Ukrainian и is left alone
+     * -- both alphabets have it, and the real Ukrainian-to-Russian correspondence
+     * for a name is not transliteration at all (Дмитро is Дмитрий, not Дмытро),
+     * so anything beyond the missing letters would be guesswork.
+     */
+    ua_letters_to_ru = function(input) {
+	var s;
+
+	if (input == null || input == "")
+	    return "";
+
+	s = input;
+	s = s.replace("і", "и");
+	s = s.replace("І", "И");
+	s = s.replace("ї", "и");
+	s = s.replace("Ї", "И");
+	s = s.replace("є", "е");
+	s = s.replace("Є", "Е");
+	s = s.replace("ґ", "г");
+	s = s.replace("Ґ", "Г");
+	s = s.replace("'", "ь");
+
+	return s;
+    };
+
 })
