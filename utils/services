@@ -542,7 +542,7 @@
 	if (service.spell != null && service.spell != "") {
 	    var sk; sk = .Skill(service.spell); if (sk == null) return;
 	    if (service.behaviors.contains("healer")) {
-		mob.recho(._("%1$^C1 мол%1$nится|ятся %2$N3."), mob, mob.godName);
+		mob.recho(._("%1$^C1 мол%1$nится|ятся %2$s."), mob, .tmp.religion.relNameMM(mob.godReligion, 3));
 		mob.trigger("Heal", client, service.name);
 	    }
 	    // TO-DO: Refactor with new spell group messages
