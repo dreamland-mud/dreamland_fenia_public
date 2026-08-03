@@ -87,12 +87,12 @@
     .tmp.weight.money = function(amount) {
 	var gold_amount; gold_amount = amount / 100;
 	var silver_amount; silver_amount = amount % 100;
-	return gold(gold_amount) + silver(silver_amount);
+	return .tmp.weight.gold(gold_amount) + .tmp.weight.silver(silver_amount);
     };
     
     // Check if char is able to carry that much money.
     .tmp.weight.canCarryMoney = function(ch, amount) {
-	return ch.carry_weight + money(amount) <= ch.max_carry_weight;
+	return ch.carry_weight + .tmp.weight.money(amount) <= ch.max_carry_weight;
     };
     
     // Check if char is able to carry this object by weight.
