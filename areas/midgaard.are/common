@@ -20,9 +20,10 @@
 	    || !.tmp.mob.canSpeak(mob)) // Не может говорить
 	    return;
 
-	// Проверить, задано ли у игрока русское имя
-	if (ch.russianName != "") mob.say(._("Привет, %#N1!"), ch.russianName);
-	else mob.say(._("Привет, %#C1!"), ch);
+	// %C1 goes through PCharacter::toNoun, which picks the name form for the
+	// language of whoever is reading. Reaching for russianName instead forced
+	// the Russian pad on everyone -- an English player got 'Hi, Дементиа!'.
+	mob.say(._("Привет, %#C1!"), ch);
     };
 
 
