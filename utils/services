@@ -156,25 +156,39 @@
 	mob.act(._("%1$^C1 обраща%1$nется|ются к тебе за услугами."), client, mob);
 	
 	mob.say(._("Я предоставляю такие услуги:"));
+	// Each row is what the client has to TYPE back, so the command word and the
+	// service name follow the reader, not the mob. English has no pad to decline:
+	// a service's English name IS its internal one ("repair"), which is also the
+	// spelling the parser expects, so %s stands in for %N1 there.
+	var lang; lang = client.displayLang;
+	var word; word = .tmp.system.lmsg(lang, "service", "услуга", "послуга");
+	var coin; coin = .tmp.system.lmsg(lang, "gold", "золотых", "золотих");
+	var deal; deal = .tmp.system.lmsg(lang,
+	    "{Yprice by arrangement{x", "{Yдоговорная цена{x", "{Yдоговірна ціна{x");
+	var dealqp; dealqp = .tmp.system.lmsg(lang,
+	    "{Cqp price by arrangement{x", "{Cдоговорная цена в qp{x", "{Cдоговірна ціна в qp{x");
+
 	for (s in services) {
 	    var msg; msg = "";
-	    msg = .fmt("   {yуслуга %-18N1{x", s.nameRus);
-	    /*
-	    if (s.behaviors.contains("blacksmith"))
-		msg = .fmt("   {yкузнец %-20N4{x", s.name, s.nameRus);*/
-	    
+	    if (lang == 0)
+		msg = .fmt("   {y" + word + " %-18s{x", s.name);
+	    else if (lang == 2)
+		msg = .fmt("   {y" + word + " %-18N1{x", s.nameUkr);
+	    else
+		msg = .fmt("   {y" + word + " %-18N1{x", s.nameRus);
+
 	    var price_gold, price_qp;
 	    var prices; prices = .List();
-	    // Show prices adjusted for druids, Fili, etc. but don't haggle yet	
+	    // Show prices adjusted for druids, Fili, etc. but don't haggle yet
 	    // Dynamic price -- usually for object services
 	    if (s.price_gold < 0)
-		prices.push_back(.fmt("{Yдоговорная цена{x"));
+		prices.push_back(deal);
 	    else if (s.price_gold > 0) {
 		price_gold = .tmp.currency.adjustPrice(client, mob, s.price_gold);
-		prices.push_back(.fmt("{Y%d{x золотых", price_gold));
+		prices.push_back(.fmt("{Y%d{x " + coin, price_gold));
 	    }
 	    if (s.price_qp < 0)
-		prices.push_back(.fmt("{Cдоговорная цена в qp{x"));
+		prices.push_back(dealqp);
 	    else if (s.price_qp > 0) {
 		price_qp = .tmp.currency.adjustPrice(client, mob, s.price_qp);
 		prices.push_back(.fmt("{C%d{x qp", price_qp));
