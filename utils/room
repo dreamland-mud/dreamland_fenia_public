@@ -98,7 +98,13 @@
 
 	// flood extinguishes non-permanent heat/fire
 	.tmp.room.extinguish(room, level, source);
-    
+
+	// TO-DO (RUFFINA): Replace this with room instances interface
+	// onRemoveRoom runs before the sector override is lifted, so it cannot read
+	// the pre-flood terrain off the room. Only temporary floods ever recede.
+	// Set after extinguish: stripping heat annuls this same field.
+	if (duration != -1) room.original_sector_type = room.sector_type;
+
 	var af; af = .Affect();
 	af.type      = "flood";
 	af.level     = level;

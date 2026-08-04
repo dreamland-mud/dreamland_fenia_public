@@ -247,22 +247,16 @@
     ////////////////////// OTHER ////////////////////////////////
     /////////////////////////////////////////////////////////////
     
-    // Create a puddle of any liquid
-    // TO-DO: possibly replace with C++ implementation
-    .tmp.object.create_puddle = function(liquid, room, amount) {
+    // Build a puddle object of any liquid, not attached to any room yet.
+    // Callers that need the puddle to land somewhere the normal way should use
+    // create_puddle; this one is for places that must bypass its room checks,
+    // e.g. an affect handler that runs while the room still reads as water.
+    .tmp.object.make_puddle = function(liquid, amount) {
 	if (amount == null) amount = 50; // default
-	if (room == null) return;
-	var liq; 
+	var liq;
 	try {liq = .Liquid(liquid);} catch (e);
-	if (liq == null) return;
-	
-	// TO-DO (RUFFINA): Temporarily change room liquid instead
-	if (room.isWater()) {
-	    room.echo(._("%^s постепенно перемешивается с %s в этой местности и исчезает."), 
-		liq.short_descr.ruscase(1), room.liquid.short_descr.ruscase(5));
-	    return;
-	}
-	
+	if (liq == null) return null;
+
 	var puddle; puddle = .get_obj_index(75).create();
 	// Fill all three language slots so %O nouns (act/decay/look) localize per
 	// viewer; the prototype (vnum 75) ships "%s" placeholders we substitute here.
@@ -277,6 +271,27 @@
 	puddle.value0 = amount;
 	puddle.value1 = amount;
 	puddle.value2 = liq.index;
+	return puddle;
+    };
+
+    // Create a puddle of any liquid
+    // TO-DO: possibly replace with C++ implementation
+    .tmp.object.create_puddle = function(liquid, room, amount) {
+	if (amount == null) amount = 50; // default
+	if (room == null) return;
+	var liq;
+	try {liq = .Liquid(liquid);} catch (e);
+	if (liq == null) return;
+
+	// TO-DO (RUFFINA): Temporarily change room liquid instead
+	if (room.isWater()) {
+	    room.echo(._("%^s постепенно перемешивается с %s в этой местности и исчезает."),
+		liq.short_descr.ruscase(1), room.liquid.short_descr.ruscase(5));
+	    return;
+	}
+
+	var puddle; puddle = .tmp.object.make_puddle(liquid, amount);
+	if (puddle == null) return;
 	.tmp.object.dropObj(null, puddle, false, room);
 	
 	room = puddle.in_room; // puddle could fall down from the original room
