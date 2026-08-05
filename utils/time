@@ -22,42 +22,63 @@
 	return duration * 60;		
     };
 
-    // Convert and output seconds to days, hours and minutes.
+    // Convert and output seconds to days, hours and minutes, in Russian.
+    // Backward-compatible 1-arg form for callers with no language in scope.
     .tmp.time.print = function(time) {
+	return .tmp.time.printL(time, 1); // 1 = LANG_RU
+    };
+
+    // One "<count> <unit>" chunk in `lang`. English deliberately does not use the
+    // %I code: %I branches by Russian numeral rules (21 takes the singular), so
+    // it would render "21 minute". All three English units pluralize with -s.
+    .tmp.time.unitL = function(count, lang, en, ru, ua) {
+	if (lang == 0) {
+	    if (count == 1) return .fmt("%1$d " + en, count);
+	    return .fmt("%1$d " + en + "s", count);
+	}
+	if (lang == 2) return .fmt("%1$d " + ua, count);
+	return .fmt("%1$d " + ru, count);
+    };
+
+    // Convert and output seconds to days, hours and minutes, in `lang`.
+    // Callers that show this to a player must pass the viewer's displayLang --
+    // otherwise an English sentence ends up wrapping a Russian duration.
+    .tmp.time.printL = function(time, lang) {
 	var msg, days, hours, minutes; msg = "";
 
 	time = time / 60; // convert seconds to minutes
-	
+
 	//  < 60    -- minutes
 	// >= 60    -- hours
 	// >= 1440  -- days
 
 	if (time >= 1440) {
 	    days = (time / 60) / 24;
-	    msg = msg + .fmt("%1$d д%1$Iень|ня|ней", days);
+	    msg = msg + .tmp.time.unitL(days, lang, "day", "д%1$Iень|ня|ней", "д%1$Iень|ні|нів");
 	    // calculating remaining hours
 	    hours = (time - days * 24 * 60) / 60;
-	    msg = msg + .fmt(", %1$d час%1$I|а|ов", hours);
+	    msg = msg + ", " + .tmp.time.unitL(hours, lang, "hour", "час%1$I|а|ов", "годин%1$Iу|и|");
 	    // calculating remaining minutes
 	    if (hours > 0) {
 		minutes = time - days * 24 * 60 - hours * 60;
-		msg = msg + .fmt(" и %1$d мину%1$Iту|ты|т", minutes);
+		msg = msg + .tmp.system.lmsg(lang, " and ", " и ", " і ")
+			  + .tmp.time.unitL(minutes, lang, "minute", "мину%1$Iту|ты|т", "хвилин%1$Iу|и|");
 	    }
 	}
 	else if (time >= 60) {
 	    hours = time / 60;
 	    minutes = time - hours * 60;
-	    msg = msg + .fmt("%1$d час%1$I|а|ов", hours);
+	    msg = msg + .tmp.time.unitL(hours, lang, "hour", "час%1$I|а|ов", "годин%1$Iу|и|");
 	    if (minutes > 0)
-		msg = msg + .fmt(" и %1$d мину%1$Iту|ты|т", minutes);
+		msg = msg + .tmp.system.lmsg(lang, " and ", " и ", " і ")
+			  + .tmp.time.unitL(minutes, lang, "minute", "мину%1$Iту|ты|т", "хвилин%1$Iу|и|");
 	}
 	else
-	    msg = msg + .fmt("%1$d мину%1$Iту|ты|т", time);    
-	    
-	//msg = msg + " реального времени";
-	return msg;		
+	    msg = msg + .tmp.time.unitL(time, lang, "minute", "мину%1$Iту|ты|т", "хвилин%1$Iу|и|");
+
+	return msg;
     };
-    
+
     //This one converts seconds into pulses -- for beats/waits/dazes.
     .tmp.time.seconds = function(duration) {
 	return duration * 4;		
