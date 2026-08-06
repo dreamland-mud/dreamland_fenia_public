@@ -84,6 +84,16 @@
 		var fl; fl = nextTrap.flags; if (fl == null) fl = "";
 		ch.trap = .tables.trap_flags.values(fl);
 
+	    } else if (trap.fatal == true) {
+		// A drop nothing survives -- a bottomless chasm. The victim is
+		// carried down first and dies THERE, so the corpse lies at the
+		// bottom instead of on the ledge they slipped from. == true
+		// because an unset prop reads as NONE, not false.
+		if (ch.is_immortal())
+		    ch.act(._("Будь ты смертным, удар о землю стал бы последним."), ch);
+		else
+		    ch.raw_kill(-1, ch, "room");
+
 	    } else if (trap.dmgPerLevel != null) {
 		// Fall damage on the final impact only -- a "level die", level
 		// d(dmgPerLevel) of bash, matching the deathtrap non-lethal branch: a
