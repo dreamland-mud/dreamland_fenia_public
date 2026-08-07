@@ -721,10 +721,12 @@
     // Now depends on fire power, not fire damage dealt
     .tmp.mob.effectFire = function(ch, fire_power, heat_items, apply_damage) {
 	if (!.tmp.mob.valid(ch)) return;
-	fire_power = .urange(0, fire_power, 10); // cap fire_power at 10
+	var room; room = ch.in_room;
+	// The surroundings feed or fight the element before anything else does
+	fire_power = .urange(0, fire_power + .tmp.room.elementMod(room, "fire"), 10);
+	if (fire_power == 0) return; // underwater, pouring rain: nothing happens
 	var to_save; to_save = .urange(1, 100 - fire_power * 10, 99);
 	var items_affected; items_affected = 0; // capped by fire_power
-	var room; room = ch.in_room;
 
 	// Burn/heat gear first -- so that ch could see it
 	// NB: Immunity to fire or protection prevents damage to ch, not to items
@@ -794,20 +796,13 @@
 	    af.modifier         = -1 * .max(4, fire_power + 1);
 	    ch.affectAdd(af);
 	}
-	
-	// Check "room temperature", get total fire_power (current fire + new)
-	var room_temperature; room_temperature = fire_power;
-	var fire; fire = room.get_obj_vnum(39001);
-	if (fire != null) room_temperature = room_temperature + .max(4, fire.fire_time / 4);
-	
-	// Create fire or burn the whole room if the temperature is high enough
-	if (.chance(room_temperature)) {
-	    .tmp.object.createFire(room, null, fire_power);
-	    if (room_temperature >= 10 && .tmp.room.canBurn(room))
-		.tmp.room.burn(room, fire_power * 10 + 1, fire_power/2 + 1);
-	}
 
-    };    
+	// Setting the ROOM alight belongs to .tmp.room.effectFire, not here.
+	// This used to end with a createFire/burn roll at room_temperature =
+	// fire_power, which meant a flaming sword had a couple of percent per
+	// swing to start a bonfire in the tavern. Contact effects reach the
+	// victim and the victim's gear; only area effects reach the room.
+    };
 
     // cold_effect analog from C++: freeze gear and chill the victim, but don't
     // damage unless apply_damage. Depends on cold power, not on damage dealt.
@@ -815,7 +810,9 @@
     // 8 frost spells, 10 white dragon breath.
     .tmp.mob.effectCold = function(ch, cold_power, freeze_items, apply_damage) {
 	if (!.tmp.mob.valid(ch)) return;
-	cold_power = .urange(0, cold_power, 10); // cap cold_power at 10
+	// The surroundings feed or fight the element before anything else does
+	cold_power = .urange(0, cold_power + .tmp.room.elementMod(ch.in_room, "cold"), 10);
+	if (cold_power == 0) return;
 	var to_save; to_save = .urange(1, 100 - cold_power * 10, 99);
 	var items_affected; items_affected = 0; // capped by cold_power
 
@@ -877,7 +874,10 @@
     // 4 shocking grasp, 8 lightning bolt, 10 blue dragon breath.
     .tmp.mob.effectShock = function(ch, shock_power, affect_items, apply_damage) {
 	if (!.tmp.mob.valid(ch)) return;
-	shock_power = .urange(0, shock_power, 10); // cap shock_power at 10
+	// The surroundings feed or fight the element before anything else does:
+	// water conducts, so a discharge in a flooded room hits far harder
+	shock_power = .urange(0, shock_power + .tmp.room.elementMod(ch.in_room, "shock"), 10);
+	if (shock_power == 0) return;
 	var to_save; to_save = .urange(1, 100 - shock_power * 10, 99);
 	var items_affected; items_affected = 0; // capped by shock_power
 

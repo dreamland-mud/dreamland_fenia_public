@@ -336,4 +336,166 @@
 		
 	return null;
     };	
+
+    ////////////////////////////////////////////////////////////////////////
+    ///////////  ENVIRONMENT + AREA ELEMENTAL EFFECTS  /////////////////////
+    ////////////////////////////////////////////////////////////////////////
+
+    // What the surroundings do to an elemental effect: an integer power delta
+    // clamped to -3..+3, or -100 for "this room kills the effect outright".
+    // Applied exactly once, at the entry of every .tmp.mob.effectX and every
+    // .tmp.room.effectX.
+    //
+    // The direction is always what the room does to the SOURCE, never to the
+    // victim: rain quenches a flame, standing water carries a discharge, a
+    // desert at noon fights frostbite. The finer weather maths inside
+    // heat_chance and freeze_chance stays where it is -- that serves the direct
+    // applyHeat/applyCold callers (torches, forges, smithing) which never come
+    // through here. Fire in the rain is therefore damped twice, on purpose.
+    .tmp.room.elementMod = function(room, element) {
+	if (room == null) return 0;
+
+	var sect; sect = room.sector_type;
+	var outside; outside = room.isOutside();
+	var underwater; underwater = (sect == .tables.sector_table.underwater);
+	var water; water = (sect == .tables.sector_table.water_swim
+			    || sect == .tables.sector_table.water_noswim
+			    || .tmp.room.hasPuddles(room));
+	var rain; rain = (outside && .sky == 2);
+	var storm; storm = (outside && .sky == 3);
+	var desert; desert = (sect == .tables.sector_table.desert);
+	var air; air = (sect == .tables.sector_table.air);
+	var indoors; indoors = (!outside || sect == .tables.sector_table.inside);
+	var hot; hot = room.isAffected("heat");
+	var flooded; flooded = room.isAffected("flood");
+	var mod; mod = 0;
+
+	if (element == "fire") {
+	    if (underwater) return -100; // nothing burns down there
+	    if (water) mod = mod - 2;
+	    if (rain || storm) mod = mod - 2;
+	    if (flooded) mod = mod - 2;
+	    if (.season == "winter") mod = mod - 1;
+	    if (.season == "summer" && outside && .sunlight > 0) mod = mod + 1;
+	    if (desert && .sunlight > 0) mod = mod + 1;
+	    if (hot) mod = mod + 2;
+	}
+	else if (element == "cold") {
+	    // Wet gear and water carry heat away far faster than air does
+	    if (underwater || water || storm || flooded) mod = mod + 1;
+	    if (.season == "winter") mod = mod + 2;
+	    if (.season == "summer" && outside && .sunlight > 0) mod = mod - 1;
+	    if (desert) {
+		if (.sunlight > 0) mod = mod - 2; // noon in the sand
+		else mod = mod + 1;               // desert nights bite
+	    }
+	    if (hot) mod = mod - 2;
+	}
+	else if (element == "shock") {
+	    // Water conducts -- this is the headline case
+	    if (underwater) mod = mod + 3;
+	    else if (water || flooded) mod = mod + 2;
+	    if (storm) mod = mod + 2; // charge already in the air
+	    else if (rain) mod = mod + 1;
+	    if (desert) mod = mod - 1; // bone-dry air insulates
+	}
+	else if (element == "acid") {
+	    // Dilution is the whole story
+	    if (underwater) mod = mod - 3;
+	    else if (water || flooded) mod = mod - 2;
+	    if (rain || storm) mod = mod - 2;
+	    if (desert && .sunlight > 0) mod = mod + 1;
+	    if (hot) mod = mod + 1;
+	}
+	else if (element == "poison") {
+	    // Gas model: wind and rain scatter the cloud, closed rooms hold it
+	    if (underwater) mod = mod - 2;
+	    else if (water || flooded) mod = mod - 1;
+	    if (storm) mod = mod - 2;
+	    else if (rain) mod = mod - 1;
+	    if (air) mod = mod - 2;
+	    if (indoors) mod = mod + 1;
+	}
+	else if (element == "sand") {
+	    // Needs loose dry particulate, and wet sand is just mud
+	    if (underwater || water || flooded) return -100;
+	    if (desert) mod = mod + 2;
+	    if (rain) mod = mod - 1;
+	    if (storm) mod = mod + 1;
+	    if (air) mod = mod + 1;
+	    if (indoors) mod = mod - 2; // only what the caster brought with them
+	}
+	else if (element == "scream") {
+	    // Water carries sound much further, thin air bleeds the pressure
+	    if (underwater) mod = mod + 2;
+	    else if (water || flooded) mod = mod + 1;
+	    if (indoors) mod = mod + 1; // reverberation
+	    if (air) mod = mod - 1;
+	}
+
+	return .urange(-3, mod, 3);
+    };
+
+    // AREA entry for fire. The contact entry (.tmp.mob.effectFire) reaches the
+    // victim and what the victim carries and nothing else, so a flaming sword
+    // can never set the innkeeper's furniture alight; dragon breath, firestorms
+    // and burning rooms come through here and still can.
+    //
+    // source_ch is the caster where there is one, null for room affects and
+    // ambient heat. It is NOT forwarded to applyHeat: passing a source there
+    // means "deliberately heating my own stuff" and jumps the chance to ~90%.
+    .tmp.room.effectFire = function(room, source_ch, power) {
+	if (room == null) return;
+	power = .urange(0, power + .tmp.room.elementMod(room, "fire"), 10);
+	if (power == 0) return;
+
+	for (obj in room.items) {
+	    if (!.tmp.object.valid(obj)) continue;
+	    if (obj.in_obj != null) continue; // ignore items inside containers
+	    .tmp.object.applyHeat(obj, null, null, power, false);
+	}
+
+	// The room itself only catches from a real blaze, never from a stray proc
+	var room_temperature; room_temperature = power;
+	var fire; fire = room.get_obj_vnum(39001);
+	if (fire != null) room_temperature = room_temperature + .max(4, fire.fire_time / 4);
+
+	if (.chance(room_temperature)) {
+	    .tmp.object.createFire(room, null, power);
+	    if (room_temperature >= 10 && .tmp.room.canBurn(room))
+		.tmp.room.burn(room, power * 10 + 1, power / 2 + 1);
+	}
+    };
+
+    // AREA entry for cold: floor items freeze, puddles and fountains ice over
+    // (they are item_type fountain, so applyCold handles them), and a deep
+    // enough freeze puts out whatever is burning here.
+    .tmp.room.effectCold = function(room, source_ch, power) {
+	if (room == null) return;
+	power = .urange(0, power + .tmp.room.elementMod(room, "cold"), 10);
+	if (power == 0) return;
+
+	for (obj in room.items) {
+	    if (!.tmp.object.valid(obj)) continue;
+	    if (obj.in_obj != null) continue; // ignore items inside containers
+	    .tmp.object.applyCold(obj, null, power, false);
+	}
+
+	if (power >= 8) .tmp.room.extinguish(room, power * 10, source_ch);
+    };
+
+    // AREA entry for shock: floor conductors take the discharge. Nothing
+    // catches fire and there is no room affect for charged air, so the water
+    // bonus in elementMod is the whole of the "arcs through the puddle" story.
+    .tmp.room.effectShock = function(room, source_ch, power) {
+	if (room == null) return;
+	power = .urange(0, power + .tmp.room.elementMod(room, "shock"), 10);
+	if (power == 0) return;
+
+	for (obj in room.items) {
+	    if (!.tmp.object.valid(obj)) continue;
+	    if (obj.in_obj != null) continue; // ignore items inside containers
+	    .tmp.object.applyShock(obj, null, power, false);
+	}
+    };
 })
