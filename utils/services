@@ -434,9 +434,12 @@
 		// Most spells have helpers to check for eligibility
 		// Try finding an eligibility helper, then visualize the results
 		var spell; spell = .Spell(service.spell);
+		// checkObject builds its refusal with ch.print, so it needs the
+		// caster -- here the enchanter -- exactly like checkActors below.
 		if (spell.checkObject != null)
-		    msg = spell.checkObject(service.object);
-		    
+		    msg = spell.checkObject(mob, service.object);
+
+
 	    } else {
 		// Most spells have helpers to check for eligibility
 		// Try finding an eligibility helper, then visualize the results
