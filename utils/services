@@ -478,6 +478,98 @@
 	return msg;
     };
 
+    // Fingerprint of whatever a service is supposed to change on the client.
+    // Returned as a string so affect counts and hit points can share one value;
+    // null means the service has no failure mode and is always paid for.
+    // doService takes it before and after the cast and compares: unchanged
+    // means the prayer lost its dispel roll, the malady is still there, and
+    // the client is not charged for a service that was not rendered.
+    .tmp.mob.serviceProgress = function(client, service) {
+	if (service == null || service.spell == null || service.spell == "")
+	    return null;
+
+	var n; n = 0;
+
+	// Cancellation strips whatever it wins its roll against, so count
+	// exactly the set its applyVict rolls over -- deliberately applyVict
+	// and not the stricter checkActors, because a candidate missing from
+	// this count would be stripped for free.
+	if (service.spell == "cancellation") {
+	    for (aff in client.affected) {
+		if (aff.duration > -2) {
+		    var sk; sk = .Skill(aff.type);
+		    if (sk != null && sk.group != null) {
+			var ah; ah = sk.affectHandler;
+			if (ah != null && ah.cancelled)
+			    n = n + 1;
+		    }
+		}
+	    }
+	    return "" + n;
+	}
+
+	// Remove curse rolls separately for each cursed item and for the
+	// curse affect; freeing any one of them is a service rendered.
+	if (service.spell == "remove curse") {
+	    var spell; spell = .Spell("remove curse");
+	    if (spell == null || spell.canUncurseObj == null) return null;
+	    for (obj in client.items)
+		if (spell.canUncurseObj(obj))
+		    n = n + 1;
+	    for (aff in client.affected)
+		if (aff.type == "curse")
+		    n = n + 1;
+	    return "" + n;
+	}
+
+	// Refresh restores moves, but on a fatigued client it does nothing at
+	// all except roll against the fatigue -- and loses that roll often.
+	// Both halves have to be in the fingerprint.
+	if (service.spell == "refresh") {
+	    for (aff in client.affected)
+		if (aff.type == "fatigue")
+		    n = n + 1;
+	    return .fmt("%1$d/%2$d", n, client.move);
+	}
+
+	// Restoring light chains five cures and then heals, so healing alone
+	// counts -- hence hit points in the fingerprint. Its remove curse leg
+	// frees cursed ITEMS on their own rolls, so they count here too, the
+	// same way they do for the standalone curse service.
+	if (service.spell == "restoring light") {
+	    for (aff in client.affected) {
+		if (aff.type == "blindness" || aff.type == "curse" ||
+		    aff.type == "poison" || aff.type == "plague" ||
+		    aff.type == "fear")
+		    n = n + 1;
+	    }
+	    if (client.affected_by & .tables.affect_flags.sleep)
+		n = n + 1;
+
+	    var uncurse; uncurse = .Spell("remove curse");
+	    if (uncurse != null && uncurse.canUncurseObj != null)
+		for (obj in client.items)
+		    if (uncurse.canUncurseObj(obj))
+			n = n + 1;
+
+	    return .fmt("%1$d/%2$d", n, client.hit);
+	}
+
+	// Single-malady cures: the affect they strip must be gone afterwards.
+	var cured; cured = "";
+	if (service.spell == "cure poison") cured = "poison";
+	else if (service.spell == "cure blindness") cured = "blindness";
+	else if (service.spell == "cure disease") cured = "plague";
+	else if (service.spell == "cure corruption") cured = "corruption";
+	else if (service.spell == "regrow") cured = "slice";
+	else return null;
+
+	for (aff in client.affected)
+	    if (aff.type == cured)
+		n = n + 1;
+	return "" + n;
+    };
+
     // Returns new haggled price in silver, if the client is capable of haggling
     .tmp.mob.hagglePrice = function(client, mob, old_price) {
 	var new_price; new_price = old_price;
@@ -542,8 +634,10 @@
 		return false;
 	    }
 	    else {
-		// One final service check
-		if (.tmp.mob.canPerformService(mob, client, service) != "") {
+		// One final service check. msg has to be captured: it was
+		// never declared in this function, so the refusal said nothing.
+		var msg; msg = .tmp.mob.canPerformService(mob, client, service);
+		if (msg != "") {
 		    mob.say(msg);
 		    return false;
 		}
@@ -551,6 +645,10 @@
 	    }
 	}
 	
+	// Curative services roll against the malady and can lose, leaving the
+	// client exactly as they were. Snapshot the malady before the cast.
+	var progress; progress = .tmp.mob.serviceProgress(client, service);
+
 	// Service action is controlled via "spell" parameter in service map
 	// If the spell is required, mob casts spell, mana is deducted
 	if (service.spell != null && service.spell != "") {
@@ -590,6 +688,14 @@
 	}
 	
 	client.wait = client.wait + .tmp.time.seconds(1);
+
+	// The malady is exactly where it was: the prayer lost its roll and the
+	// service was not rendered, so nothing is charged. The servicer still
+	// paid the mana and the time -- that is their problem, not the client's.
+	if (progress != null && progress == .tmp.mob.serviceProgress(client, service)) {
+	    mob.psay(client, ._("На этот раз не вышло -- денег за такое не возьму, попробуй еще раз."));
+	    return false;
+	}
 
 	// Finish and pay. Prices already adjusted in estimateService
 	if (service.price_silver != null && service.price_silver > 0) {
