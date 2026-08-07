@@ -769,7 +769,13 @@
 	// Heat makes Jack thirsty. The cond_* setter GAINS the value it is given
 	// (desire->gain), it does not assign it, so adding the current reading
 	// back in would gain the whole thirst bar a second time.
-	if (!ch.is_npc()) ch.cond_thirst = fire_power * 10;
+	// Standing in a burning room parches you; being clipped by a flaming
+	// sword does not, and melee lands often enough that the full DOT rate
+	// would pin the thirst bar in a couple of rounds.
+	if (!ch.is_npc()) {
+	    if (apply_damage) ch.cond_thirst = fire_power * 10;
+	    else ch.cond_thirst = fire_power;
+	}
 	
 	if (.tmp.mob.isBlind(ch)
 	    || !(ch.parts & .tables.part_flags.eye) 
@@ -842,8 +848,13 @@
 	    if (!.tmp.mob.valid(ch)) return; // check if ch is still alive
 	}
 
-	// The cold sucks the warmth out of Jack, and Jack gets hungry
-	if (!ch.is_npc()) ch.cond_hunger = cold_power * 10;
+	// The cold sucks the warmth out of Jack, and Jack gets hungry. Same rate
+	// split as thirst in effectFire: full rate for sustained exposure, a
+	// token amount for a single hit, or melee would pin the bar.
+	if (!ch.is_npc()) {
+	    if (apply_damage) ch.cond_hunger = cold_power * 10;
+	    else ch.cond_hunger = cold_power;
+	}
 
 	if (ch.isAffected("chill touch")) return; // already frostbitten
 
