@@ -608,10 +608,16 @@
     // than folded into the call above. Two reasons: the area path has four
     // callers and reads better without a literal at each one, and a hot reload
     // posts this file and utils/mob seconds apart -- Fenia enforces arity even
-    // for plain .tmp.* calls, so during that gap the not-yet-reloaded mob code
-    // would throw "Not enough arguments" on every weapon swing and every tick
-    // of a burning room. Keeping this signature makes the window harmless: old
-    // callers land on the area rows, which is exactly what they had before.
+    // for plain .tmp.* calls (fenia/function.cpp throws on too few AND too
+    // many), so during that gap the not-yet-reloaded mob code would throw on
+    // every weapon swing and every tick of a burning room. This signature makes
+    // the window harmless: a stale caller lands on the area rows rather than an
+    // exception. Not identical to what it had -- it gets the NEW area numbers --
+    // but a plausible answer for a few seconds beats a thrown effect.
+    //
+    // The protection is ONE-WAY. Posting utils/mob before this file leaves
+    // elementModKind a Map miss, and every effectX throws until this lands.
+    // Deploy order is: utils/room, then utils/mob, then the spell callers.
     .tmp.room.elementMod = function(room, element) {
 	return .tmp.room.elementModKind(room, element, "area");
     };
@@ -620,6 +626,15 @@
     // victim and what the victim carries and nothing else, so a flaming sword
     // can never set the innkeeper's furniture alight; dragon breath, firestorms
     // and burning rooms come through here and still can.
+    //
+    // WHY THE AREA ENTRIES FLOOR AT 0 WHERE THE CONTACT ONES FLOOR AT 1: every
+    // area caller today is power 6 or higher (room heat 6, firestorm 8, iceball
+    // 8, the three dragon cones 10), so weather cannot reach zero from there
+    // and the annihilation defect the contact floor exists for does not apply.
+    // Flooring here instead would give a rainy room a fresh ~1% chance to catch
+    // fire on every call, because createFire refuses only the air and underwater
+    // sectors -- it has no rain guard. If you ever add an area caller at power 3
+    // or less, floor it at 1 and revisit that ignition roll first.
     //
     // source_ch is the caster where there is one, null for room affects and
     // ambient heat. It is NOT forwarded to applyHeat: passing a source there
