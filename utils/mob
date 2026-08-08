@@ -1040,6 +1040,63 @@
 	}
     };
 
+    // acid_effect analog from C++: ruin the gear, etch the armour, no burns and
+    // no blindness. Acid power mirrors the others: 1 vinegar, 2 an acid-coated
+    // weapon, 4 vitriol, 6 caustic font, 8 acid spells, 10 black dragon breath.
+    //
+    // The character signature here is deliberately NOT a copy of fire's. Fire
+    // blinds and parches; acid does neither. What acid does to a person wearing
+    // metal is ruin what they are wearing, and applyAcid puts the corrosion
+    // affect on armour itself -- so this function's whole job is to walk the
+    // gear and let the object engine speak. ch.items covers inventory AND worn
+    // equipment (characterwrapper.cpp), so the etch reaches armour without a
+    // second pass over ch.equipment.
+    .tmp.mob.effectAcid = function(ch, acid_power, affect_items, apply_damage) {
+	if (!.tmp.mob.valid(ch)) return;
+	// A splash at an interface barely cares about the weather -- it reacts in
+	// seconds, long before a rinse arrives. A caustic mist very much does.
+	var emod; emod = .tmp.room.elementModKind(ch.in_room, "acid", "contact");
+	if (emod <= -100) return;
+	acid_power = .urange(1, acid_power + emod, 10);
+	var to_save; to_save = .urange(1, 100 - acid_power * 10, 99);
+	var items_affected; items_affected = 0;
+
+	// Eat the gear first, so ch sees it happen, and before the immunity check:
+	// being immune to acid protects the character, not their backpack, exactly
+	// as it goes for fire and cold.
+	for (obj in ch.items) {
+	    if (!affect_items) break;
+	    if (obj.in_obj != null) continue; // ignore items inside containers
+	    if (.tmp.chance(to_save, ch)) break;
+	    if (!.tmp.object.applyAcid(obj, null, acid_power, true))
+		continue; // nothing happened to that one, try another
+
+	    if (!.tmp.mob.valid(ch)) return; // a dissolving item can kill the carrier
+
+	    if (apply_damage && items_affected >= .urange(1, acid_power / 4, 3)) break;
+	    else if (items_affected >= .urange(1, acid_power / 3, 4)) break; // DOT cap
+	    else items_affected = items_affected + 1;
+	}
+
+	if (ch.isImmune("acid", ""))
+	    return; // no effect if protected
+
+	// DAMAGE, if applicable -- reserved for a future acid-pool DOT
+	if (apply_damage) {
+	    var dam; dam = .dice(ch.level, acid_power * 2);
+	    ch.rawdamage(ch, dam, "acid", "self");
+	    if (!.tmp.mob.valid(ch)) return;
+	}
+
+	// No affect to hang on the character: legacy acid had none, and the
+	// lingering cost is the corroded armour, which is where it belongs. This
+	// line is the flavour that tells the victim why their gear is hissing.
+	if (items_affected > 0) {
+	    ch.act(._("{gЕдкая кислота шипит, разъедая все, чего коснулась.{x"));
+	    ch.recho(._("{gЕдкая кислота шипит на %1$P3 снаряжении.{x"), ch);
+	}
+    };
+
     // Venom delivered at an interface: a poisoned blade, an envenomed arrow, a
     // touch spell. Weatherproof on purpose -- see poisonRun.
     .tmp.mob.effectPoison = function(ch, poison_power, affect_items, apply_damage) {
@@ -1050,6 +1107,160 @@
     // DOT. Everything the weather does to a cloud applies to these.
     .tmp.mob.effectPoisonCloud = function(ch, poison_power, affect_items, apply_damage) {
 	.tmp.mob.poisonRun(ch, poison_power, affect_items, apply_damage, "area");
+    };
+
+    // sand_effect analog from C++: blind the victim, scour their gear, no burns.
+    // Sand power mirrors the others: 1 a handful of grit, 2 a dust devil,
+    // 4 a steady desert wind, 6 desert fist, 8 a desert sandstorm, 10 a
+    // wall-of-sand hurricane.
+    //
+    // Like poison, sand needs BOTH delivery kinds behind one signature: a fist
+    // of sand pressed and thrown is contact, a storm the victim is standing
+    // inside is an airborne cloud, and the weather should modulate the second
+    // far more than the first. Fenia has no optional arguments, so the kind
+    // lives in the runner and the two public entries are one-liners.
+    .tmp.mob.sandRun = function(ch, sand_power, affect_items, apply_damage, kind) {
+	if (!.tmp.mob.valid(ch)) return;
+	var source_power; source_power = sand_power;
+	var emod; emod = .tmp.room.elementModKind(ch.in_room, "sand", kind);
+	if (emod <= -100) return; // standing water, a flood: it is mud, not sand
+	sand_power = .urange(1, sand_power + emod, 10);
+	var to_save; to_save = .urange(1, 100 - sand_power * 10, 99);
+	var items_affected; items_affected = 0;
+
+	// Scour the gear first, so ch sees it happen. Note what is NOT here: no
+	// path in applySand extracts an item outright, so a storm can wear a cloak
+	// through over many exposures but can never eat a backpack in one.
+	for (obj in ch.items) {
+	    if (!affect_items) break;
+	    if (obj.in_obj != null) continue; // ignore items inside containers
+	    if (.tmp.chance(to_save, ch)) break;
+	    if (!.tmp.object.applySand(obj, null, sand_power, true))
+		continue;
+
+	    if (!.tmp.mob.valid(ch)) return;
+
+	    if (apply_damage && items_affected >= .urange(1, sand_power / 4, 3)) break;
+	    else if (items_affected >= .urange(1, sand_power / 3, 4)) break;
+	    else items_affected = items_affected + 1;
+	}
+
+	// DAMAGE, if applicable -- reserved for a future sandstorm room affect
+	if (apply_damage) {
+	    var dam; dam = .dice(ch.level, sand_power * 2);
+	    ch.rawdamage(ch, dam, "slash", "self");
+	    if (!.tmp.mob.valid(ch)) return;
+	}
+
+	// Dust in the throat. Negative because the setter GAINS and the bar runs
+	// -6 (dying of thirst) to 96 (sated) -- the same trap fire's thirst line
+	// documents. Gated on the REQUESTED power so a desert bonus cannot make a
+	// thrown handful of grit parch anybody.
+	if (!ch.is_npc() && source_power >= 4)
+	    ch.cond_thirst = -1 * .max(1, source_power / 4);
+
+	if (.tmp.mob.isBlind(ch)
+	    || !(ch.parts & .tables.part_flags.eye)
+	    || (ch.parts & .tables.part_flags.eyestalks))
+	    return; // can't blind if eyestalks, no eyes, or already blind
+
+	// Grit in the eyes. The legacy save was against DAM_SLASH and the affect
+	// is the sand storm skill's own (generic-skills/sand storm.xml), both kept.
+	if (!ch.saves_spell(ch, sand_power * 10, "slash")) {
+	    ch.act(._("{yТвои глаза слезятся от набившегося в них песка. Ты ничего не видишь!{x"));
+	    ch.recho(._("%1$^C1 ничего не видит из-за песка, попавшего в глаза!"), ch);
+	    var af; af = .Affect();
+	    af.type		= "sand storm";
+	    af.level		= sand_power * 10 + 1;
+	    af.duration		= sand_power / 2 + 1;
+	    af.bitvector("affect_flags", "blind");
+	    af.location		= .tables.apply_flags.hitroll;
+	    af.modifier		= -1 * .max(4, sand_power);
+	    ch.affectAdd(af);
+	}
+    };
+
+    // A fist of sand, a thrown handful: contact.
+    .tmp.mob.effectSand = function(ch, sand_power, affect_items, apply_damage) {
+	.tmp.mob.sandRun(ch, sand_power, affect_items, apply_damage, "contact");
+    };
+
+    // A storm the victim is standing inside: an airborne cloud.
+    .tmp.mob.effectSandCloud = function(ch, sand_power, affect_items, apply_damage) {
+	.tmp.mob.sandRun(ch, sand_power, affect_items, apply_damage, "area");
+    };
+
+    // scream_effect analog from C++: deafen, daze, break off the fight, and
+    // shatter whatever glass the victim is carrying. Scream power mirrors the
+    // others: 1 an angry yell, 4 the note that cracks a wineglass, 8 the scream
+    // spell point blank, 10 a dragon's roar.
+    //
+    // Kind is NOT a parameter here and elementModKind is asked for "area" even
+    // though this is the victim-facing entry. That is deliberate: sound is
+    // always delivered through the medium. There is no such thing as contact
+    // acoustics -- a scream at point-blank range underwater still travels
+    // through water, and the water is exactly what makes it worse.
+    .tmp.mob.effectScream = function(ch, scream_power, affect_items, apply_damage) {
+	if (!.tmp.mob.valid(ch)) return;
+	var emod; emod = .tmp.room.elementModKind(ch.in_room, "scream", "area");
+	if (emod <= -100) return; // no BLOCK exists for sound; guarded anyway
+	scream_power = .urange(1, scream_power + emod, 10);
+	var to_save; to_save = .urange(1, 100 - scream_power * 10, 99);
+	var items_affected; items_affected = 0;
+
+	for (obj in ch.items) {
+	    if (!affect_items) break;
+	    if (obj.in_obj != null) continue; // ignore items inside containers
+	    if (.tmp.chance(to_save, ch)) break;
+	    if (!.tmp.object.applyScream(obj, null, scream_power, true))
+		continue;
+
+	    if (!.tmp.mob.valid(ch)) return; // a bursting potion can kill the carrier
+
+	    if (apply_damage && items_affected >= .urange(1, scream_power / 4, 3)) break;
+	    else if (items_affected >= .urange(1, scream_power / 3, 4)) break;
+	    else items_affected = items_affected + 1;
+	}
+
+	if (ch.isImmune("sound", ""))
+	    return; // no effect if protected
+
+	if (apply_damage) {
+	    var dam; dam = .dice(ch.level, scream_power * 2);
+	    ch.rawdamage(ch, dam, "sound", "self");
+	    if (!.tmp.mob.valid(ch)) return;
+	}
+
+	if (ch.saves_spell(ch, scream_power * 10, "sound")) return;
+
+	// 1: deafness. The scream skill exists (generic-skills/scream.xml) and
+	// AFF_SCREAM is bits.conf:101.
+	if (!ch.isAffected("scream")) {
+	    ch.act(._("{MТы ничего не слышишь!{x"));
+	    ch.recho(._("%1$^C1 теперь ничего не слышит."), ch);
+	    var af; af = .Affect();
+	    af.type		= "scream";
+	    af.level		= scream_power * 10 + 1;
+	    af.duration		= .urange(0, scream_power / 4, 2);
+	    af.bitvector("affect_flags", "scream");
+	    ch.affectAdd(af);
+	}
+
+	// 2: half the time the note also rattles the head. setDaze in C++ only
+	// ever raises, so mirror that with max rather than assignment.
+	if (.chance(50)) {
+	    ch.act(._("{WТы ошеломленно трясешь головой!{x"));
+	    ch.recho(._("%1$^C1 ошеломленно трясет головой."), ch);
+	    ch.daze = .max(ch.daze, .urange(8, scream_power * 2, 20));
+	}
+
+	// 3: and it breaks concentration on the fight, which is the whole reason
+	// warlocks and witches carry it -- the help article promises exactly this.
+	if (ch.fighting != null) {
+	    ch.act(._("Дикий вопль заставляет тебя отвлечься от сражения!"));
+	    ch.recho(._("Дикий вопль заставляет %1$C4 отвлечься от сражения!"), ch);
+	    ch.stop_fighting(true);
+	}
     };
 
     // Knock a cramped hand's weapon loose. This mirrors the success branch of
