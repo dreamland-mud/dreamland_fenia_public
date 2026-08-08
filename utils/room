@@ -308,6 +308,27 @@
 	return (room.isWater() || puddle != null);
     };
     
+    // Is there snow lying on the ground here?
+    //
+    // Deliberately SEPARATE from hasPuddles rather than folded into it. Winter
+    // precipitation does not leave puddles: global/update drops snowdrifts (obj
+    // vnum 27121, material snow) in .rooms_rain rooms when the season is winter,
+    // and create_rain_puddle (vnum 75) in every other season. A room never gets
+    // both. So hasPuddles -- which only knows vnum 75 -- is false all winter in
+    // exactly the rooms the weather just covered, and every "is the ground wet"
+    // test in the game quietly stops working for a quarter of the year.
+    //
+    // Widening hasPuddles would have been the one-line fix and the wrong one:
+    // its six callers each want a DIFFERENT answer about snow. Sneaking over a
+    // snowdrift should be loud, not silent. A red-hot item SHOULD cool in one.
+    // You cannot kick dirt out of frozen ground. Snowmelt is not rain for a
+    // sprout. So the vnum lives here once, and each caller opts in on its own
+    // merits -- see the memory note; elementMod is the first customer.
+    .tmp.room.hasSnow = function(room) {
+	if (room == null) return false;
+	return (room.get_obj_vnum(27121) != null);
+    };
+
     // Is room part of onboarding?
     .tmp.room.isIntroArea = function(room) {
 	return .tmp.transport.isIntroArea(room.area);
@@ -420,8 +441,14 @@
 	var wet_sector; wet_sector = (sect == .tables.sector_table.water_swim
 				      || sect == .tables.sector_table.water_noswim);
 	var water; water = (wet_sector || puddles);
-	var rain; rain = (outside && .sky == 2);
-	var storm; storm = (outside && .sky == 3);
+	// Snow on the ground, and precipitation split by whether it is LIQUID.
+	// .sky == 2 in winter is snowfall, not rain, and reading it as rain gave
+	// every "rain" row to a snowstorm -- which is directionally right for fire
+	// and backwards for anything that cares whether the water is frozen.
+	var snow; snow = .tmp.room.hasSnow(room);
+	var snowfall; snowfall = (outside && .sky >= 2 && .season == "winter");
+	var rain; rain = (outside && .sky == 2 && .season != "winter");
+	var storm; storm = (outside && .sky == 3 && .season != "winter");
 	var desert; desert = (sect == .tables.sector_table.desert);
 	var air; air = (sect == .tables.sector_table.air);
 	var forest; forest = (sect == .tables.sector_table.forest);
@@ -459,14 +486,16 @@
 		// The clamp means all the wet rows together are still worth one
 		// point: it matters, but not as much as it matters to a bonfire.
 		if (water) mod = mod - 1;
-		if (rain || storm) mod = mod - 1;
+		if (rain || storm || snowfall) mod = mod - 1;
 		if (flooded) mod = mod - 1;
+		if (snow) mod = mod - 1; // snow is the one material with burns: -1
 		if (hot) mod = mod + 1; // superheated air feeds the brand
 	    }
 	    else {
 		if (water) mod = mod - 2;
-		if (rain || storm) mod = mod - 2;
+		if (rain || storm || snowfall) mod = mod - 2;
 		if (flooded) mod = mod - 2;
+		if (snow) mod = mod - 1; // snow is the one material with burns: -1
 		if (.season == "winter") mod = mod - 1;   // cold damp fuel
 		if (.season == "summer" && outside && blazing) mod = mod + 1;
 		if (desert && blazing) mod = mod + 1;     // preheated and dry
@@ -485,11 +514,13 @@
 		// A wet target couples to cold -- frostbite in soaked clothes
 		// is interface physics, the same argument as shock's puddle.
 		if (.season == "winter") mod = mod + 1;
+		if (snow) mod = mod + 1; // a snowdrift is a heat sink
 		if (desert && blazing) mod = mod - 1;
 		if (hot) mod = mod - 1;
 	    }
 	    else {
-		if (storm) mod = mod + 1;                 // wind chill
+		if (storm || snowfall) mod = mod + 1;     // wind chill
+		if (snow) mod = mod + 1;                  // snow-covered ground
 		if (.season == "winter") mod = mod + 2;
 		if (.season == "summer" && outside && blazing) mod = mod - 1;
 		if (desert) {
@@ -519,6 +550,23 @@
 		else mod = mod + 2;
 	    }
 	    else if (rain) mod = mod + 1;
+	    // Snowfall gets exactly what liquid rain used to get, because splitting
+	    // rain by season silently took it away and that is a NERF nobody signed
+	    // off. Dry snow really is an insulator and this row arguably belongs at
+	    // 0, but that is a balance call on lightning in winter, not a typo to
+	    // fix in passing. OPEN: Kit's ruling. Snow on the GROUND has no row
+	    // for the same reason.
+	    else if (snowfall) {
+		// Branch on kind exactly as the liquid-storm row above does. An
+		// earlier version did not, which quietly handed contact shock a
+		// second point in every winter thunderstorm -- the precise kind of
+		// unsigned-off nerf-in-reverse this row exists to prevent.
+		if (.sky == 3) {
+		    if (contact) mod = mod + 1;
+		    else mod = mod + 2;
+		}
+		else mod = mod + 1;
+	    }
 	    if (desert) mod = mod - 1; // bone-dry air and ground insulate
 	}
 	else if (element == "acid") {
@@ -535,7 +583,8 @@
 		if (underwater) return -100;
 		if (water) mod = mod - 2;
 		if (flooded) mod = mod - 2;
-		if (rain || storm) mod = mod - 2;
+		if (rain || storm || snowfall) mod = mod - 2;
+		if (snow) mod = mod - 1;              // meltwater dilutes it
 		if (desert && blazing) mod = mod + 1; // evaporation concentrates
 		if (hot) mod = mod + 1;
 	    }
@@ -551,6 +600,10 @@
 		if (flooded) mod = mod - 1;
 		if (storm) mod = mod - 2;             // washout and scatter
 		else if (rain) mod = mod - 1;
+		else if (snowfall) {                  // a blizzard scatters it too
+		    if (.sky == 3) mod = mod - 2;
+		    else mod = mod - 1;
+		}
 		if (air) mod = mod - 2;               // nothing confines it
 		if (indoors) mod = mod + 1;           // confinement concentrates
 		// The temperature terms this row lacked entirely. Cold dense
@@ -573,9 +626,17 @@
 		// A fist of sand is pressed and thrown in a second: only the
 		// supply of grit around the caster changes anything.
 		if (desert) mod = mod + 1;
+		if (snow) mod = mod + 1;
 	    }
 	    else {
 		if (desert) mod = mod + 2;   // unlimited supply, day or night
+		// Snow does NOT stop a sandstorm -- it becomes a SNOWSTORM. Snow is
+		// solid loose particulate, not mud: a ground blizzard is the same
+		// phenomenon with a different powder, so snow-covered ground is a
+		// supply like desert sand, and winter precipitation FEEDS it where
+		// liquid rain damps it. The BLOCK above belongs to liquid water only.
+		if (snow) mod = mod + 2;
+		if (snowfall) mod = mod + 1;
 		if (field) mod = mod + 1;    // loose soil and dust
 		if (air) mod = mod + 1;      // winds aloft keep the flux up
 		if (rain) mod = mod - 1;     // wet grains clump
@@ -595,6 +656,7 @@
 	    else if (water) mod = mod + 1;
 	    if (flooded) mod = mod + 1;
 	    if (indoors) mod = mod + 1;    // reverberation
+	    if (snow) mod = mod - 1;       // fresh snow is the best absorber there is
 	    if (forest) mod = mod - 1;     // vegetation absorbs
 	    if (mountain) mod = mod - 1;   // thin air couples weakly
 	    if (air) mod = mod - 1;        // nothing to reflect from
@@ -709,6 +771,115 @@
 	    if (!.tmp.object.valid(obj)) continue;
 	    if (obj.in_obj != null) continue; // ignore items inside containers
 	    .tmp.object.applyShock(obj, null, power, false);
+	}
+    };
+
+    // AREA entry for sand: the storm smothers open flame, scours the floor, and
+    // in deep desert buries the small stuff. This is where the three behaviours
+    // that are genuinely about the ROOM rather than about one victim live.
+    .tmp.room.effectSand = function(room, source_ch, power) {
+	if (room == null) return;
+
+	// The quench is decided on the CALLER's power, before the room gets a say,
+	// for the same reason the ice cone's is: burying a fire is a thing a storm
+	// is FOR, and letting the room's own heat row veto it would mean a storm
+	// can never put out the fire it is blowing through. Same shape as
+	// effectCold above -- keep the two consistent if either changes.
+	if (power >= 4) {
+	    var fire; fire = room.get_obj_vnum(39001);
+	    if (fire != null) {
+		room.echo(._("Песчаный вихрь забивает огонь, и тот захлебывается."));
+		.tmp.object.extinguish(fire, false); // no ashes, it is buried
+	    }
+	    if (power >= 8) {
+		var dispel_level; dispel_level = power * 10;
+		if (source_ch != null && source_ch.level > dispel_level)
+		    dispel_level = source_ch.level;
+		.tmp.room.extinguish(room, dispel_level, source_ch);
+	    }
+	}
+
+	power = .urange(0, power + .tmp.room.elementMod(room, "sand"), 10);
+	if (power == 0) return;
+
+	for (obj in room.items) {
+	    if (!.tmp.object.valid(obj)) continue;
+	    if (obj.in_obj != null) continue; // ignore items inside containers
+	    .tmp.object.applySand(obj, null, power, false);
+	}
+
+	// BURIAL -- desert only, and only a real storm. Deliberately conservative:
+	// small loose things get a decay timer if they had none, which is what
+	// "lost in the sand" means mechanically. No teleporting items into
+	// invisible containers, and nothing owned or protected (see the guards).
+	// Re-read room.items rather than
+	// reusing the loop above: applySand may have destroyed some of them.
+	if (power < 8) return;
+	if (room.sector_type != .tables.sector_table.desert) return;
+
+	for (obj in room.items) {
+	    if (!.tmp.object.valid(obj)) continue;
+	    if (obj.in_obj != null) continue;
+	    if (.tmp.object.indestructible(obj)) continue;
+	    // indestructible() is nopurge OR the personal-quest-reward behavior --
+	    // it does NOT cover a permanently owned item (owner set, timer 0), which
+	    // is the class canDisassemble protects and the one scream was just made
+	    // to respect. Burying one and letting the decay path delete it would be
+	    // the same hole by a slower route.
+	    if (obj.owner != "") continue;
+	    if (obj.weight >= 10) continue;   // a chest does not vanish under sand
+	    // obj.weight is the item's OWN weight, not weightTotal, so a light bag
+	    // stuffed with loot passes the line above. Once its timer runs out,
+	    // update.cpp extracts a floor container WITH its contents (saveAll is
+	    // false when nobody is carrying it), so burying one would delete
+	    // everything inside by the slow route.
+	    if (obj.items.size() > 0) continue;
+	    if (obj.timer != 0) continue;     // already decaying, or deliberately eternal
+	    obj.timer = .number_range(2, 4);
+	    room.echo(._("%1$^O1 исчеза%1$nет|ют под слоем песка."), obj);
+	}
+    };
+
+    // AREA entry for scream: the shelf of bottles behind the bar is the entire
+    // point of this one. No room affect -- sound leaves nothing behind.
+    .tmp.room.effectScream = function(room, source_ch, power) {
+	if (room == null) return;
+	power = .urange(0, power + .tmp.room.elementMod(room, "scream"), 10);
+	if (power == 0) return;
+
+	// verbose=false like the other area entries, and it still announces every
+	// break: applyScream prints the shatter line UNCONDITIONALLY, because an
+	// item exploding is never something to swallow. What false suppresses is
+	// only the "rings but holds" chatter, which in a tavern would be one line
+	// per surviving bottle per cast.
+	for (obj in room.items) {
+	    if (!.tmp.object.valid(obj)) continue;
+	    if (obj.in_obj != null) continue; // ignore items inside containers
+	    .tmp.object.applyScream(obj, null, power, false);
+	}
+    };
+
+    // AREA entry for acid: a caustic mist or a poured flood eats what is lying
+    // on the floor. Quiet on purpose -- verbose here would be one line per item
+    // per call, which is the mistake the burning-room floor sweep already made
+    // once. The room itself takes nothing: acid leaves no room affect, and there
+    // is no acid liquid in dreamland_world/liquids to pour a puddle from.
+    //
+    // NO CALLER YET, and that is not an oversight: every acid spell in the
+    // game today is single-target (acid arrow, acid blast, acetum primus,
+    // sulfuric spray, caustic font, the black dragon's cone), so all of them are
+    // contact. This exists so the seven elements have the same shape and so the
+    // acid row in elementMod has something to be reached through the day an area
+    // acid effect is written. Do not "clean it up" as dead code.
+    .tmp.room.effectAcid = function(room, source_ch, power) {
+	if (room == null) return;
+	power = .urange(0, power + .tmp.room.elementMod(room, "acid"), 10);
+	if (power == 0) return;
+
+	for (obj in room.items) {
+	    if (!.tmp.object.valid(obj)) continue;
+	    if (obj.in_obj != null) continue; // ignore items inside containers
+	    .tmp.object.applyAcid(obj, null, power, false);
 	}
     };
 
