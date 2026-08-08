@@ -825,14 +825,14 @@
 	// victim and the victim's gear; only area effects reach the room.
     };
 
-    // cold_effect analog from C++: freeze gear and chill the victim, but don't
-    // damage unless apply_damage. Depends on cold power, not on damage dealt.
-    // Cold power mirrors fire_power: 1 winter air, 2 frost weapon, 4 blizzard,
-    // 8 frost spells, 10 white dragon breath.
-    .tmp.mob.effectCold = function(ch, cold_power, freeze_items, apply_damage) {
+    // The gear half of effectCold on its own. A caller that keeps its own
+    // chill touch affect needs the freezing WITHOUT a second roll for the
+    // affect: chill touch scales duration and the STR malus off the caster's
+    // level, which the power argument cannot express, so the spell applies its
+    // own affect and calls this for the gear. effectCold is this plus the
+    // affect, and no caller should ever run both.
+    .tmp.mob.effectColdGear = function(ch, cold_power, apply_damage) {
 	if (!.tmp.mob.valid(ch)) return;
-	// What the caller asked for, kept for the hunger gate below
-	var source_power; source_power = cold_power;
 	// Contact source: a frost brand, a targeted spell. A wet target couples
 	// to cold, so the water rows still help -- but only by a point, and no
 	// room can switch a frost weapon off the way a burning room used to.
@@ -842,10 +842,8 @@
 	var to_save; to_save = .urange(1, 100 - cold_power * 10, 99);
 	var items_affected; items_affected = 0; // capped by cold_power
 
-	// Freeze gear first -- so that ch could see it
 	// NB: Immunity to cold or protection prevents damage to ch, not to items
 	for (obj in ch.items) {
-	    if (!freeze_items) break;
 	    if (obj.in_obj != null) continue; // ignore items inside containers
 	    // Chance to freeze anything depends on cold_power
 	    if (.tmp.chance(to_save, ch)) break;
@@ -858,6 +856,26 @@
 	    else if (items_affected >= .urange(1, cold_power / 3, 4)) break; // higher cap for DOT
 	    else items_affected = items_affected + 1;
 	}
+    };
+
+    // cold_effect analog from C++: freeze gear and chill the victim, but don't
+    // damage unless apply_damage. Depends on cold power, not on damage dealt.
+    // Cold power mirrors fire_power: 1 winter air, 2 frost weapon, 4 blizzard,
+    // 8 frost spells, 10 white dragon breath.
+    .tmp.mob.effectCold = function(ch, cold_power, freeze_items, apply_damage) {
+	if (!.tmp.mob.valid(ch)) return;
+	// What the caller asked for, kept for the hunger gate below
+	var source_power; source_power = cold_power;
+	var emod; emod = .tmp.room.elementModKind(ch.in_room, "cold", "contact");
+	if (emod <= -100) return; // no BLOCK exists for cold today; guarded anyway
+
+	// Freeze gear first -- so that ch could see it
+	if (freeze_items) {
+	    .tmp.mob.effectColdGear(ch, cold_power, apply_damage);
+	    if (!.tmp.mob.valid(ch)) return; // a bursting vessel can take the carrier with it
+	}
+
+	cold_power = .urange(1, cold_power + emod, 10);
 
 	if (ch.isAffected("protection cold")) return;
 

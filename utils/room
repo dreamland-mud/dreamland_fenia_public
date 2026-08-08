@@ -550,23 +550,12 @@
 		else mod = mod + 2;
 	    }
 	    else if (rain) mod = mod + 1;
-	    // Snowfall gets exactly what liquid rain used to get, because splitting
-	    // rain by season silently took it away and that is a NERF nobody signed
-	    // off. Dry snow really is an insulator and this row arguably belongs at
-	    // 0, but that is a balance call on lightning in winter, not a typo to
-	    // fix in passing. OPEN: Kit's ruling. Snow on the GROUND has no row
-	    // for the same reason.
-	    else if (snowfall) {
-		// Branch on kind exactly as the liquid-storm row above does. An
-		// earlier version did not, which quietly handed contact shock a
-		// second point in every winter thunderstorm -- the precise kind of
-		// unsigned-off nerf-in-reverse this row exists to prevent.
-		if (.sky == 3) {
-		    if (contact) mod = mod + 1;
-		    else mod = mod + 2;
-		}
-		else mod = mod + 1;
-	    }
+	    // Winter precipitation deliberately has NO row here, and neither does
+	    // snow lying on the ground. Dry snow is an insulator, not an
+	    // electrolyte: a blizzard is not a wet storm as far as a circuit is
+	    // concerned, and the water rows above already cover the case where it
+	    // has melted into something conductive. This carried the liquid-rain
+	    // numbers for one batch while the question was open. Ruled 2026-08-08.
 	    if (desert) mod = mod - 1; // bone-dry air and ground insulate
 	}
 	else if (element == "acid") {
