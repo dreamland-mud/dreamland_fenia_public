@@ -725,9 +725,14 @@
 	// What the caller asked for, kept for decisions that must not drift with
 	// the weather -- see the thirst gate below
 	var source_power; source_power = fire_power;
-	// The surroundings feed or fight the element before anything else does
-	fire_power = .urange(0, fire_power + .tmp.room.elementMod(room, "fire"), 10);
-	if (fire_power == 0) return; // underwater, pouring rain: nothing happens
+	// The surroundings feed or fight the element before anything else does.
+	// A brand against skin is a CONTACT source: the weather is a nudge at
+	// the interface, clamped to one point either way, and only a genuinely
+	// impossible room (underwater) deletes the effect. Rain used to erase a
+	// power-2 proc outright -- 2 - 2 = 0 and the whole body was skipped.
+	var emod; emod = .tmp.room.elementModKind(room, "fire", "contact");
+	if (emod <= -100) return; // underwater: nothing to burn, nothing to blind
+	fire_power = .urange(1, fire_power + emod, 10);
 	var to_save; to_save = .urange(1, 100 - fire_power * 10, 99);
 	var items_affected; items_affected = 0; // capped by fire_power
 
@@ -828,9 +833,12 @@
 	if (!.tmp.mob.valid(ch)) return;
 	// What the caller asked for, kept for the hunger gate below
 	var source_power; source_power = cold_power;
-	// The surroundings feed or fight the element before anything else does
-	cold_power = .urange(0, cold_power + .tmp.room.elementMod(ch.in_room, "cold"), 10);
-	if (cold_power == 0) return;
+	// Contact source: a frost brand, a targeted spell. A wet target couples
+	// to cold, so the water rows still help -- but only by a point, and no
+	// room can switch a frost weapon off the way a burning room used to.
+	var emod; emod = .tmp.room.elementModKind(ch.in_room, "cold", "contact");
+	if (emod <= -100) return; // no BLOCK exists for cold today; guarded anyway
+	cold_power = .urange(1, cold_power + emod, 10);
 	var to_save; to_save = .urange(1, 100 - cold_power * 10, 99);
 	var items_affected; items_affected = 0; // capped by cold_power
 
@@ -892,10 +900,12 @@
     // 4 shocking grasp, 8 lightning bolt, 10 blue dragon breath.
     .tmp.mob.effectShock = function(ch, shock_power, affect_items, apply_damage) {
 	if (!.tmp.mob.valid(ch)) return;
-	// The surroundings feed or fight the element before anything else does:
-	// water conducts, so a discharge in a flooded room hits far harder
-	shock_power = .urange(0, shock_power + .tmp.room.elementMod(ch.in_room, "shock"), 10);
-	if (shock_power == 0) return;
+	// Water conducts, so a discharge into a soaked victim hits far harder.
+	// Shock is the one element whose contact clamp reaches +2 rather than
+	// +1: a wet victim is not a bystander to the circuit, they ARE it.
+	var emod; emod = .tmp.room.elementModKind(ch.in_room, "shock", "contact");
+	if (emod <= -100) return; // no BLOCK exists for shock today; guarded anyway
+	shock_power = .urange(1, shock_power + emod, 10);
 	var to_save; to_save = .urange(1, 100 - shock_power * 10, 99);
 	var items_affected; items_affected = 0; // capped by shock_power
 
@@ -938,7 +948,10 @@
 	    // adds: power 8+ (lightning bolt and up -- a shocking blade is 2),
 	    // a SECOND save that has to fail as well, and then a luck roll the
 	    // victim can win. Water can carry a weaker spell over the line via
-	    // elementMod, which is the point of standing in a puddle.
+	    // elementMod -- which is why shock is the one element whose CONTACT
+	    // clamp reaches +2 instead of +1, and the point of standing in a
+	    // puddle: a galvanic whip is power 6 and gets there, a shocking
+	    // blade is power 2 and never will.
 	    //
 	    // The second roll is at the SAME level as the first, deliberately.
 	    // saves_spell is `40 + (mlevel - level) * 4 - ...`, so raising the
@@ -960,14 +973,23 @@
     // Deliberately the smallest of these engines. Legacy poison touched only
     // food and part-full drink containers, which is right -- venom needs a
     // bloodstream -- so the port keeps that shape instead of inventing one.
-    .tmp.mob.effectPoison = function(ch, poison_power, affect_items, apply_damage) {
+    // Poison is the one element where the victim-facing entry has to know HOW
+    // the toxin arrived, because venom in a wound and gas in the lungs are
+    // different physics behind the same signature. Fenia has no optional
+    // arguments, so the delivery kind lives here and the two public entries
+    // below are one-line wrappers -- callers keep the symmetric four-argument
+    // shape every other effectX has.
+    .tmp.mob.poisonRun = function(ch, poison_power, affect_items, apply_damage, kind) {
 	if (!.tmp.mob.valid(ch)) return;
-	// Gas disperses in wind and rain and pools in closed rooms. Contact
-	// venom does NOT come through here -- the weapon-flag branch in
-	// global/onWeaponEffect/weapons keeps its own affect logic, so a blade
-	// in the ribs still works in a downpour.
-	poison_power = .urange(0, poison_power + .tmp.room.elementMod(ch.in_room, "poison"), 10);
-	if (poison_power == 0) return;
+	// For a gas cloud the room decides a great deal: wind and rain scatter
+	// it, a closed room holds it, cold air pools it at knee height. For
+	// venom under the skin the room decides nothing at all, and the contact
+	// row is empty by design -- rain does not wash poison out of a puncture
+	// wound. (The weapon-flag branch in global/onWeaponEffect/weapons never
+	// comes through here either way; it keeps its own inline affect.)
+	var emod; emod = .tmp.room.elementModKind(ch.in_room, "poison", kind);
+	if (emod <= -100) return; // a gas cloud cannot form underwater
+	poison_power = .urange(1, poison_power + emod, 10);
 
 	// Foul what the victim is carrying FIRST, so they see it happen, and
 	// before the immunity check -- being immune to poison protects the
@@ -1016,6 +1038,18 @@
 	    af.bitvector("affect_flags", "poison");
 	    ch.affectJoin(af); // join, not add -- a second dose refreshes
 	}
+    };
+
+    // Venom delivered at an interface: a poisoned blade, an envenomed arrow, a
+    // touch spell. Weatherproof on purpose -- see poisonRun.
+    .tmp.mob.effectPoison = function(ch, poison_power, affect_items, apply_damage) {
+	.tmp.mob.poisonRun(ch, poison_power, affect_items, apply_damage, "contact");
+    };
+
+    // A toxin the victim breathes: gas cones, poison clouds, a future gas-room
+    // DOT. Everything the weather does to a cloud applies to these.
+    .tmp.mob.effectPoisonCloud = function(ch, poison_power, affect_items, apply_damage) {
+	.tmp.mob.poisonRun(ch, poison_power, affect_items, apply_damage, "area");
     };
 
     // Knock a cramped hand's weapon loose. This mirrors the success branch of
