@@ -554,10 +554,17 @@
 	    // rain by season silently took it away and that is a NERF nobody signed
 	    // off. Dry snow really is an insulator and this row arguably belongs at
 	    // 0, but that is a balance call on lightning in winter, not a typo to
-	    // fix in passing. ⚠️ OPEN: Kit's ruling. Snow on the GROUND has no row
+	    // fix in passing. OPEN: Kit's ruling. Snow on the GROUND has no row
 	    // for the same reason.
 	    else if (snowfall) {
-		if (.sky == 3) mod = mod + 2;
+		// Branch on kind exactly as the liquid-storm row above does. An
+		// earlier version did not, which quietly handed contact shock a
+		// second point in every winter thunderstorm -- the precise kind of
+		// unsigned-off nerf-in-reverse this row exists to prevent.
+		if (.sky == 3) {
+		    if (contact) mod = mod + 1;
+		    else mod = mod + 2;
+		}
 		else mod = mod + 1;
 	    }
 	    if (desert) mod = mod - 1; // bone-dry air and ground insulate
@@ -815,6 +822,12 @@
 	    if (obj.in_obj != null) continue;
 	    if (.tmp.object.indestructible(obj)) continue;
 	    if (obj.weight >= 10) continue;   // a chest does not vanish under sand
+	    // obj.weight is the item's OWN weight, not weightTotal, so a light bag
+	    // stuffed with loot passes the line above. Once its timer runs out,
+	    // update.cpp extracts a floor container WITH its contents (saveAll is
+	    // false when nobody is carrying it), so burying one would delete
+	    // everything inside by the slow route.
+	    if (obj.items.size() > 0) continue;
 	    if (obj.timer != 0) continue;     // already decaying, or deliberately eternal
 	    obj.timer = .number_range(2, 4);
 	    room.echo(._("%1$^O1 исчеза%1$nет|ют под слоем песка."), obj);
@@ -846,7 +859,7 @@
     // once. The room itself takes nothing: acid leaves no room affect, and there
     // is no acid liquid in dreamland_world/liquids to pour a puddle from.
     //
-    // ⚠️ NO CALLER YET, and that is not an oversight: every acid spell in the
+    // NO CALLER YET, and that is not an oversight: every acid spell in the
     // game today is single-target (acid arrow, acid blast, acetum primus,
     // sulfuric spray, caustic font, the black dragon's cone), so all of them are
     // contact. This exists so the seven elements have the same shape and so the
