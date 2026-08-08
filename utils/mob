@@ -768,16 +768,16 @@
 	if (ch.isAffected("chill touch") && .chance(50 + fire_power))
 	    ch.affectStrip("chill touch", true); // dispel frostbite
 	    
-	// Heat makes Jack thirsty. The cond_* setter GAINS the value it is given
-	// (desire->gain), it does not assign it, so adding the current reading
-	// back in would gain the whole thirst bar a second time.
-	// Standing in a burning room parches you; being clipped by a flaming
-	// sword does not, and melee lands often enough that the full DOT rate
-	// would pin the thirst bar in a couple of rounds.
-	if (!ch.is_npc()) {
-	    if (apply_damage) ch.cond_thirst = fire_power * 10;
-	    else ch.cond_thirst = fire_power;
-	}
+	// Heat makes Jack thirsty. Two traps live on this one line.
+	// The setter GAINS what it is given (desire->gain), it does not assign,
+	// so feeding the current reading back in gains the whole bar twice over.
+	// And the scale runs -6 (dying of thirst) to 96 (sated), so a PENALTY has
+	// to be NEGATIVE: the legacy effects.cpp passed a positive dam/20 under a
+	// "getting thirsty" comment, which quenched thirst instead.
+	// Only a real blaze or a real spell parches -- a flaming sword lands
+	// several times a round and would outdrain the burning room it started.
+	if (!ch.is_npc() && fire_power >= 4)
+	    ch.cond_thirst = -1 * .max(1, fire_power / 4);
 	
 	if (.tmp.mob.isBlind(ch)
 	    || !(ch.parts & .tables.part_flags.eye) 
@@ -845,13 +845,11 @@
 	    if (!.tmp.mob.valid(ch)) return; // check if ch is still alive
 	}
 
-	// The cold sucks the warmth out of Jack, and Jack gets hungry. Same rate
-	// split as thirst in effectFire: full rate for sustained exposure, a
-	// token amount for a single hit, or melee would pin the bar.
-	if (!ch.is_npc()) {
-	    if (apply_damage) ch.cond_hunger = cold_power * 10;
-	    else ch.cond_hunger = cold_power;
-	}
+	// The cold sucks the warmth out of Jack, and Jack gets hungry. Negative
+	// for the same reason as thirst in effectFire: the setter gains, and the
+	// bar runs -6 (starving) to 96 (fed), so a penalty counts down.
+	if (!ch.is_npc() && cold_power >= 4)
+	    ch.cond_hunger = -1 * .max(1, cold_power / 4);
 
 	if (ch.isAffected("chill touch")) return; // already frostbitten
 
