@@ -825,6 +825,54 @@
 	// victim and the victim's gear; only area effects reach the room.
     };
 
+    // Stack the chill touch affect the way affect_join did -- deeper and longer
+    // with every new application -- but under a ceiling, which affect_join had
+    // not. Legacy let a frost brand drain STR without bound over a long fight;
+    // the port then over-corrected into refusing to refresh at all, so a proc on
+    // an already-chilled target did nothing whatsoever.
+    //
+    // The ceiling is derived from the incoming application rather than fixed, so
+    // no source can push the affect past twice what it manages on its own: a
+    // power-2 frost proc tops out at -2 STR over 8 ticks, a level-60 chill touch
+    // at -8 over 24. A weak source landing on a strong stack cannot lower it
+    // either -- the result is never worse than what was already there.
+    //
+    // Returns true when it actually deepened or lengthened something, so the
+    // caller can keep quiet instead of announcing a freeze that changed nothing.
+    .tmp.mob.chillJoin = function(ch, af) {
+	if (!.tmp.mob.valid(ch)) return false;
+
+	// Read the stack as magnitudes: modifier is negative on the wire, and the
+	// clamping below only reads right in the direction it means. Modifiers sum
+	// because several affects all apply at once; durations do not, because the
+	// longest one is how long the victim is actually chilled.
+	var have_mod; have_mod = 0;
+	var have_dur; have_dur = 0;
+	var have_lev; have_lev = 0;
+	for (aff in ch.affected) {
+	    if (aff.type != "chill touch") continue;
+	    // A permanent chill is somebody else's, and affectReplace below would
+	    // delete it. Leave the whole thing alone rather than half-merge it.
+	    if (aff.duration < 0) return false;
+	    have_mod = have_mod - aff.modifier;
+	    have_dur = .max(have_dur, aff.duration);
+	    have_lev = .max(have_lev, aff.level);
+	}
+
+	var add_mod; add_mod = -1 * af.modifier;
+	var new_mod; new_mod = .max(have_mod, .min(have_mod + add_mod, add_mod * 2));
+	var new_dur; new_dur = .max(have_dur, .min(have_dur + af.duration, af.duration * 4));
+
+	if (new_mod <= have_mod && new_dur <= have_dur)
+	    return false; // already at the ceiling for a source this strong
+
+	af.modifier = -1 * new_mod;
+	af.duration = new_dur;
+	af.level = .max(have_lev, af.level);
+	ch.affectReplace(af); // collapses whatever was there into this one
+	return true;
+    };
+
     // The gear half of effectCold on its own. A caller that keeps its own
     // chill touch affect needs the freezing WITHOUT a second roll for the
     // affect: chill touch scales duration and the STR malus off the caster's
@@ -897,18 +945,17 @@
 	if (!ch.is_npc() && source_power >= 4)
 	    ch.cond_hunger = -1 * .max(1, source_power / 4);
 
-	if (ch.isAffected("chill touch")) return; // already frostbitten
-
 	if (!ch.saves_spell(ch, cold_power * 10, "cold")) {
-	    ch.act(._("{CХолод окутывает тебя и проникает до самых костей.{x"));
-	    ch.recho(._("{CВолна холода пронизывает %1$C4.{x"), ch);
 	    var af; af = .Affect();
 	    af.type		= "chill touch";
 	    af.level		= cold_power * 10 + 1;
 	    af.duration		= cold_power / 2 + 1;
 	    af.location		= .tables.apply_flags.str;
 	    af.modifier		= -1 * .max(1, cold_power / 3);
-	    ch.affectJoin(af);
+	    if (.tmp.mob.chillJoin(ch, af)) {
+		ch.act(._("{CХолод окутывает тебя и проникает до самых костей.{x"));
+		ch.recho(._("{CВолна холода пронизывает %1$C4.{x"), ch);
+	    }
 	}
     };
 
