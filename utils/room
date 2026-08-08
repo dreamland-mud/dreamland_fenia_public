@@ -544,4 +544,19 @@
 	    .tmp.object.applyShock(obj, null, power, false);
 	}
     };
+
+    // AREA entry for poison: a gas cloud settles on whatever is lying open on
+    // the floor. Nothing else -- venom does not corrode, burn or freeze, and
+    // the room itself has no poison affect to hang.
+    .tmp.room.effectPoison = function(room, source_ch, power) {
+	if (room == null) return;
+	power = .urange(0, power + .tmp.room.elementMod(room, "poison"), 10);
+	if (power == 0) return;
+
+	for (obj in room.items) {
+	    if (!.tmp.object.valid(obj)) continue;
+	    if (obj.in_obj != null) continue; // ignore items inside containers
+	    .tmp.object.applyPoison(obj, null, power, true);
+	}
+    };
 })

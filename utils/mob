@@ -952,6 +952,72 @@
 	}
     };
 
+    // poison_effect analog from C++: venom in the bloodstream, and food left
+    // dangerous to eat. Poison power mirrors the others: 1 tainted leftovers,
+    // 2 a poisoned blade, 4 a drunkard's breath, 8 poison spells, 10 green
+    // dragon breath.
+    //
+    // Deliberately the smallest of these engines. Legacy poison touched only
+    // food and part-full drink containers, which is right -- venom needs a
+    // bloodstream -- so the port keeps that shape instead of inventing one.
+    .tmp.mob.effectPoison = function(ch, poison_power, affect_items, apply_damage) {
+	if (!.tmp.mob.valid(ch)) return;
+	// Gas disperses in wind and rain and pools in closed rooms. Contact
+	// venom does NOT come through here -- the weapon-flag branch in
+	// global/onWeaponEffect/weapons keeps its own affect logic, so a blade
+	// in the ribs still works in a downpour.
+	poison_power = .urange(0, poison_power + .tmp.room.elementMod(ch.in_room, "poison"), 10);
+	if (poison_power == 0) return;
+
+	// Foul what the victim is carrying FIRST, so they see it happen, and
+	// before the immunity check -- being immune to poison protects the
+	// character, not their lunch, exactly as it goes for fire and cold.
+	// Two items at most: a single breath spoiling an entire pack is the
+	// legacy behaviour this port exists to stop.
+	// applyPoison takes a source_ch it never reads; the argument is there
+	// to keep the four apply* signatures the same shape.
+	var items_affected; items_affected = 0;
+	for (obj in ch.items) {
+	    if (!affect_items) break;
+	    if (obj.in_obj != null) continue; // ignore items inside containers
+	    if (!.tmp.object.applyPoison(obj, null, poison_power, true))
+		continue;
+	    // No valid(ch) re-check here, unlike the fire and cold loops:
+	    // applyPoison only ever sets a bit, so it cannot kill the carrier
+	    // the way an exploding potion can.
+	    items_affected = items_affected + 1;
+	    if (items_affected >= 2) break;
+	}
+
+	if (ch.isImmune("poison", ""))
+	    return; // no effect if protected
+
+	// DAMAGE, if applicable -- reserved for a future gas-room DOT
+	if (apply_damage) {
+	    var dam; dam = .dice(ch.level, poison_power * 2);
+	    ch.rawdamage(ch, dam, "poison", "self");
+	    if (!.tmp.mob.valid(ch)) return; // check if ch is still alive
+	}
+
+	if (!ch.saves_spell(ch, poison_power * 10, "poison")) {
+	    ch.act(._("{gТебя начинает тошнить, когда яд проникает в твое тело.{x"));
+	    ch.recho(._("{g%1$^C4 начинает тошнить, когда яд проникает в %1$P2 тело.{x"), ch);
+
+	    var af; af = .Affect();
+	    af.type		= "poison";
+	    af.level		= poison_power * 10 + 1;
+	    // Legacy gave duration level/2 -- 30 for a level-60 breath. Cap
+	    // there, or power 10 would outlast anything the old code could do.
+	    af.duration		= .urange(1, poison_power * 5, 30);
+	    af.location		= .tables.apply_flags.str;
+	    var str_mod; str_mod = -1;
+	    if (poison_power >= 8) str_mod = -2;
+	    af.modifier		= str_mod;
+	    af.bitvector("affect_flags", "poison");
+	    ch.affectJoin(af); // join, not add -- a second dose refreshes
+	}
+    };
+
     // Knock a cramped hand's weapon loose. This mirrors the success branch of
     // SkillCommand("disarm").apply deliberately: canRemove refuses a NOREMOVE
     // weapon, can_drop_obj keeps nodrop gear in the inventory instead of
