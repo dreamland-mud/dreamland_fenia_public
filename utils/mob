@@ -982,7 +982,9 @@
 	    if (obj.in_obj != null) continue; // ignore items inside containers
 	    if (!.tmp.object.applyPoison(obj, null, poison_power, true))
 		continue;
-	    if (!.tmp.mob.valid(ch)) return; // double-check if ch is still alive
+	    // No valid(ch) re-check here, unlike the fire and cold loops:
+	    // applyPoison only ever sets a bit, so it cannot kill the carrier
+	    // the way an exploding potion can.
 	    items_affected = items_affected + 1;
 	    if (items_affected >= 2) break;
 	}
