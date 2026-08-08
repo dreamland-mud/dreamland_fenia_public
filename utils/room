@@ -811,8 +811,8 @@
 	// BURIAL -- desert only, and only a real storm. Deliberately conservative:
 	// small loose things get a decay timer if they had none, which is what
 	// "lost in the sand" means mechanically. No teleporting items into
-	// invisible containers, and nothing that is nopurge or someone's personal
-	// property (indestructible covers both). Re-read room.items rather than
+	// invisible containers, and nothing owned or protected (see the guards).
+	// Re-read room.items rather than
 	// reusing the loop above: applySand may have destroyed some of them.
 	if (power < 8) return;
 	if (room.sector_type != .tables.sector_table.desert) return;
@@ -821,6 +821,12 @@
 	    if (!.tmp.object.valid(obj)) continue;
 	    if (obj.in_obj != null) continue;
 	    if (.tmp.object.indestructible(obj)) continue;
+	    // indestructible() is nopurge OR the personal-quest-reward behavior --
+	    // it does NOT cover a permanently owned item (owner set, timer 0), which
+	    // is the class canDisassemble protects and the one scream was just made
+	    // to respect. Burying one and letting the decay path delete it would be
+	    // the same hole by a slower route.
+	    if (obj.owner != "") continue;
 	    if (obj.weight >= 10) continue;   // a chest does not vanish under sand
 	    // obj.weight is the item's OWN weight, not weightTotal, so a light bag
 	    // stuffed with loot passes the line above. Once its timer runs out,
