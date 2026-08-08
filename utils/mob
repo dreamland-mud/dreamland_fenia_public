@@ -733,10 +733,21 @@
 	    if (obj.in_obj != null) continue; // ignore items inside containers
 	    // Chance to burn anything depends on fire_power
 	    if (.tmp.chance(to_save, ch)) break;
+	    var wasHot; wasHot = obj.isAffected("incandescent");
 	    if (!.tmp.object.applyHeat(obj, null, null, fire_power, false))
 		continue; // didn't affect item? let's try another one
-	    
+
 	    if (!.tmp.mob.valid(ch)) return; // double-check if ch is still alive
+
+	    // applyHeat runs quiet here on purpose -- this is ambient heat, and
+	    // its verbose lines are written for someone deliberately heating a
+	    // thing. But gear going red-hot is a state the owner then takes
+	    // damage from, and only cooling down ever announced itself
+	    // (incandescent/onUpdateObj), so the pair was one-sided. Fires once,
+	    // on the transition: canHeat() refuses an already-glowing object.
+	    if (!wasHot && .tmp.object.valid(obj) && obj.isAffected("incandescent")
+		&& room != null)
+		room.echo(._("%1$^O1 раскаля%1$nется|ются докрасна."), obj);
 
 	    if (apply_damage && items_affected >= .urange(1, fire_power / 4, 3)) break;
 	    else if (items_affected >= .urange(1, fire_power / 3, 4)) break; // higher cap for DOT
