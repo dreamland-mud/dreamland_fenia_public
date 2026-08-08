@@ -958,6 +958,14 @@
 	if (!weapon.material.metal) return false; // a wooden haft insulates
 	if (!.tmp.object.canRemove(weapon)) return false;
 
+	// Godiva's patrons cannot be disarmed. That is a promise they paid for,
+	// and SkillCommand("disarm").checkActors honours it -- a lightning bolt
+	// must not be the loophole. Visible, like the disarm refusal is.
+	if (.tmp.religion.hasPatron(ch, "godiva", false)) {
+	    ch.act(._("{DПризрачная аура{x удерживает %1$O4 в твоей сведенной руке."), weapon);
+	    return false;
+	}
+
 	// Luck fights the spasm -- the avoidance idiom, and ch is the one
 	// avoiding, so the luck is theirs to spend
 	if (.tmp.chance(20, ch)) return false;
