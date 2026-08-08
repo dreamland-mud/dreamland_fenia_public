@@ -355,7 +355,21 @@
     .tmp.room.elementMod = function(room, element) {
 	if (room == null) return 0;
 
+	var hot; hot = room.isAffected("heat");
+	var flooded; flooded = room.isAffected("flood");
+
+	// .tmp.room.burn overrides sector_type to DESERT through the heat affect
+	// (see burn() above), so a burning room reads as a desert here and would
+	// collect the desert row on top of the heat row: fire self-feeding +3
+	// instead of +2, and cold beaten down -4 instead of -2 -- which is
+	// exactly the case an ice spell exists for. The real terrain is stashed
+	// in original_sector_type before the affect goes on. Flood's water
+	// override is left alone: a flooded room really is standing water, and
+	// the spec counts the sector and the affect as separate rows.
 	var sect; sect = room.sector_type;
+	if (hot && room.original_sector_type != null)
+	    sect = room.original_sector_type;
+
 	var outside; outside = room.isOutside();
 	var underwater; underwater = (sect == .tables.sector_table.underwater);
 	var water; water = (sect == .tables.sector_table.water_swim
@@ -366,8 +380,6 @@
 	var desert; desert = (sect == .tables.sector_table.desert);
 	var air; air = (sect == .tables.sector_table.air);
 	var indoors; indoors = (!outside || sect == .tables.sector_table.inside);
-	var hot; hot = room.isAffected("heat");
-	var flooded; flooded = room.isAffected("flood");
 	var mod; mod = 0;
 
 	if (element == "fire") {
@@ -381,8 +393,13 @@
 	    if (hot) mod = mod + 2;
 	}
 	else if (element == "cold") {
-	    // Wet gear and water carry heat away far faster than air does
-	    if (underwater || water || storm || flooded) mod = mod + 1;
+	    // Wet gear and water carry heat away far faster than air does.
+	    // These are separate rows in the spec table and stack: a flooded
+	    // room in a storm is worse than either on its own.
+	    if (underwater) mod = mod + 1;
+	    else if (water) mod = mod + 1;
+	    if (storm) mod = mod + 1;
+	    if (flooded) mod = mod + 1;
 	    if (.season == "winter") mod = mod + 2;
 	    if (.season == "summer" && outside && .sunlight > 0) mod = mod - 1;
 	    if (desert) {
@@ -394,7 +411,8 @@
 	else if (element == "shock") {
 	    // Water conducts -- this is the headline case
 	    if (underwater) mod = mod + 3;
-	    else if (water || flooded) mod = mod + 2;
+	    else if (water) mod = mod + 2;
+	    if (flooded) mod = mod + 2;
 	    if (storm) mod = mod + 2; // charge already in the air
 	    else if (rain) mod = mod + 1;
 	    if (desert) mod = mod - 1; // bone-dry air insulates
@@ -402,7 +420,8 @@
 	else if (element == "acid") {
 	    // Dilution is the whole story
 	    if (underwater) mod = mod - 3;
-	    else if (water || flooded) mod = mod - 2;
+	    else if (water) mod = mod - 2;
+	    if (flooded) mod = mod - 2;
 	    if (rain || storm) mod = mod - 2;
 	    if (desert && .sunlight > 0) mod = mod + 1;
 	    if (hot) mod = mod + 1;
@@ -410,7 +429,8 @@
 	else if (element == "poison") {
 	    // Gas model: wind and rain scatter the cloud, closed rooms hold it
 	    if (underwater) mod = mod - 2;
-	    else if (water || flooded) mod = mod - 1;
+	    else if (water) mod = mod - 1;
+	    if (flooded) mod = mod - 1;
 	    if (storm) mod = mod - 2;
 	    else if (rain) mod = mod - 1;
 	    if (air) mod = mod - 2;
@@ -428,7 +448,8 @@
 	else if (element == "scream") {
 	    // Water carries sound much further, thin air bleeds the pressure
 	    if (underwater) mod = mod + 2;
-	    else if (water || flooded) mod = mod + 1;
+	    else if (water) mod = mod + 1;
+	    if (flooded) mod = mod + 1;
 	    if (indoors) mod = mod + 1; // reverberation
 	    if (air) mod = mod - 1;
 	}
@@ -472,6 +493,15 @@
     // enough freeze puts out whatever is burning here.
     .tmp.room.effectCold = function(room, source_ch, power) {
 	if (room == null) return;
+
+	// The quench is decided on the power the CALLER asked for, before the
+	// room gets a say, and deliberately so: a burning room is the one thing
+	// an ice spell is aimed at, and the heat row costs cold 2 power. Gating
+	// this on the modulated value would mean iceball and white dragon breath
+	// can never put out the fire they were cast into. Freezing the floor
+	// items below still goes through the modulated power.
+	if (power >= 8) .tmp.room.extinguish(room, power * 10, source_ch);
+
 	power = .urange(0, power + .tmp.room.elementMod(room, "cold"), 10);
 	if (power == 0) return;
 
@@ -480,8 +510,6 @@
 	    if (obj.in_obj != null) continue; // ignore items inside containers
 	    .tmp.object.applyCold(obj, null, power, false);
 	}
-
-	if (power >= 8) .tmp.room.extinguish(room, power * 10, source_ch);
     };
 
     // AREA entry for shock: floor conductors take the discharge. Nothing

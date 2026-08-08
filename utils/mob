@@ -722,6 +722,9 @@
     .tmp.mob.effectFire = function(ch, fire_power, heat_items, apply_damage) {
 	if (!.tmp.mob.valid(ch)) return;
 	var room; room = ch.in_room;
+	// What the caller asked for, kept for decisions that must not drift with
+	// the weather -- see the thirst gate below
+	var source_power; source_power = fire_power;
 	// The surroundings feed or fight the element before anything else does
 	fire_power = .urange(0, fire_power + .tmp.room.elementMod(room, "fire"), 10);
 	if (fire_power == 0) return; // underwater, pouring rain: nothing happens
@@ -776,8 +779,10 @@
 	// "getting thirsty" comment, which quenched thirst instead.
 	// Only a real blaze or a real spell parches -- a flaming sword lands
 	// several times a round and would outdrain the burning room it started.
-	if (!ch.is_npc() && fire_power >= 4)
-	    ch.cond_thirst = -1 * .max(1, fire_power / 4);
+	// Gated on the REQUESTED power, not the modulated one: a flaming blade
+	// is power 2 whether or not the room it swings in happens to be hot.
+	if (!ch.is_npc() && source_power >= 4)
+	    ch.cond_thirst = -1 * .max(1, source_power / 4);
 	
 	if (.tmp.mob.isBlind(ch)
 	    || !(ch.parts & .tables.part_flags.eye) 
@@ -810,6 +815,8 @@
     // 8 frost spells, 10 white dragon breath.
     .tmp.mob.effectCold = function(ch, cold_power, freeze_items, apply_damage) {
 	if (!.tmp.mob.valid(ch)) return;
+	// What the caller asked for, kept for the hunger gate below
+	var source_power; source_power = cold_power;
 	// The surroundings feed or fight the element before anything else does
 	cold_power = .urange(0, cold_power + .tmp.room.elementMod(ch.in_room, "cold"), 10);
 	if (cold_power == 0) return;
@@ -847,9 +854,11 @@
 
 	// The cold sucks the warmth out of Jack, and Jack gets hungry. Negative
 	// for the same reason as thirst in effectFire: the setter gains, and the
-	// bar runs -6 (starving) to 96 (fed), so a penalty counts down.
-	if (!ch.is_npc() && cold_power >= 4)
-	    ch.cond_hunger = -1 * .max(1, cold_power / 4);
+	// bar runs -6 (starving) to 96 (fed), so a penalty counts down. Gated on
+	// the requested power too, or a frost blade would starve people all
+	// winter on the strength of the season bonus alone.
+	if (!ch.is_npc() && source_power >= 4)
+	    ch.cond_hunger = -1 * .max(1, source_power / 4);
 
 	if (ch.isAffected("chill touch")) return; // already frostbitten
 
