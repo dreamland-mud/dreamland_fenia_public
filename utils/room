@@ -348,20 +348,51 @@
     ///////////  ENVIRONMENT + AREA ELEMENTAL EFFECTS  /////////////////////
     ////////////////////////////////////////////////////////////////////////
 
-    // What the surroundings do to an elemental effect: an integer power delta
-    // clamped to -3..+3, or -100 for "this room kills the effect outright".
-    // Applied exactly once, at the entry of every .tmp.mob.effectX and every
-    // .tmp.room.effectX.
+    // What the surroundings do to an elemental effect: an integer power delta,
+    // clamped per source kind, or -100 for "this room kills the effect
+    // outright". Applied exactly once, at the entry of every .tmp.mob.effectX
+    // and every .tmp.room.effectX.
+    //
+    // kind is the DELIVERY MEDIUM, not the name of the caller:
+    //   "area"    -- the effect reaches its target through the open medium: a
+    //                cloud, a wave, an ambient blaze. Breath cones, room
+    //                spells, room affects.
+    //   "contact" -- the reaction happens at an interface: venom in a wound, a
+    //                brand against skin, a bolt into a body. Weapon procs and
+    //                targeted spells.
+    // Anything that is not "contact" counts as area, so a caller that has not
+    // been updated degrades to the old behaviour instead of misreading a row.
+    //
+    // Why the split: rain does not wash venom out of a puncture wound, and a
+    // closed room does not concentrate the poison on a knife -- yet both used
+    // to read the same row as a gas cloud. Worse, on the 1..10 scale a -2 is
+    // cosmetic at power 10 and fatal at power 2, and power 2 is EVERY weapon
+    // proc: a flaming sword in the rain scored 2 - 2 = 0 and skipped its whole
+    // effect body, silently, on every swing. Hence the per-kind clamps below.
     //
     // The direction is always what the room does to the SOURCE, never to the
     // victim: rain quenches a flame, standing water carries a discharge, a
-    // desert at noon fights frostbite. The finer weather maths inside
-    // heat_chance and freeze_chance stays where it is -- that serves the direct
-    // applyHeat/applyCold callers (torches, forges, smithing) which never come
-    // through here. Fire in the rain is therefore damped twice, on purpose.
-    .tmp.room.elementMod = function(room, element) {
+    // desert at noon fights frostbite. For a contact source "the source" is
+    // the reaction interface, which includes how wet the target is -- that is
+    // a property of the contact point, not of the victim's saving throw.
+    //
+    // The finer weather maths inside heat_chance and freeze_chance stays where
+    // it is -- that serves the direct applyHeat/applyCold callers (torches,
+    // forges, smithing) which never come through here. Fire in the rain is
+    // therefore damped twice, on purpose.
+    //
+    // Not modelled, for lack of an input: WIND. weather_data carries mmhg and
+    // change (core/calendar.h), and they are what drives the whole sky ladder,
+    // but neither is bound to Fenia -- so .sky == 3 is the only storm signal
+    // and it means heavy rain as much as it means gale. That is why sand LOSES
+    // power in a thunderstorm: soaked grains cannot loft, and the wind half of
+    // .sky == 3 is a guess where the wet half is not. Wind as a game force
+    // lives in the hurricane and sand storm spells, i.e. in the power the
+    // caller passes, not in the room.
+    .tmp.room.elementModKind = function(room, element, kind) {
 	if (room == null) return 0;
 
+	var contact; contact = (kind == "contact");
 	var hot; hot = room.isAffected("heat");
 	var flooded; flooded = room.isAffected("flood");
 
@@ -379,89 +410,210 @@
 
 	var outside; outside = room.isOutside();
 	var underwater; underwater = (sect == .tables.sector_table.underwater);
-	var water; water = (sect == .tables.sector_table.water_swim
-			    || sect == .tables.sector_table.water_noswim
-			    || .tmp.room.hasPuddles(room));
+	// hasPuddles is deliberately kept apart from the wet SECTORS. It fires on
+	// a single puddle object lying on the floor (vnum 75, room:304), which is
+	// enough to say "there is water here to conduct or to quench" but nowhere
+	// near enough to say "the ground is wet" -- and sand blocks on wet ground.
+	// Conflating the two meant one rain puddle in a field nullified an entire
+	// sandstorm. It also scans the room's contents, so compute it once.
+	var puddles; puddles = .tmp.room.hasPuddles(room);
+	var wet_sector; wet_sector = (sect == .tables.sector_table.water_swim
+				      || sect == .tables.sector_table.water_noswim);
+	var water; water = (wet_sector || puddles);
 	var rain; rain = (outside && .sky == 2);
 	var storm; storm = (outside && .sky == 3);
 	var desert; desert = (sect == .tables.sector_table.desert);
 	var air; air = (sect == .tables.sector_table.air);
+	var forest; forest = (sect == .tables.sector_table.forest);
+	var mountain; mountain = (sect == .tables.sector_table.mountain);
+	var field; field = (sect == .tables.sector_table.field);
 	var indoors; indoors = (!outside || sect == .tables.sector_table.inside);
+	// .sunlight is 0 night, 1 sunrise, 2 DAY, 3 sunset -- so the blazing-sun
+	// rows must test == 2. The obvious > 0 counts dusk and dawn as high noon,
+	// and >= 2 counts sunset, which is the colder half of the desert swing.
+	var blazing; blazing = (.sunlight == 2);
 	var mod; mod = 0;
 
+	// The clamp is the whole defence against a weather row deciding a fight.
+	// Area sources travel through the medium, so the medium is allowed to
+	// make or break them: -3..+3. At an interface the weather is a nudge and
+	// never dominant, so contact is -1..+1 -- which is precisely what stops a
+	// power-2 proc from being erased by rain. Shock is the one exception, and
+	// it earns it: a soaked victim IS the circuit, not a bystander to it.
+	var lo; lo = -3;
+	var hi; hi = 3;
+	if (contact) {
+	    lo = -1;
+	    hi = 1;
+	    if (element == "shock") hi = 2;
+	}
+
 	if (element == "fire") {
-	    if (underwater) return -100; // nothing burns down there
-	    if (water) mod = mod - 2;
-	    if (rain || storm) mod = mod - 2;
-	    if (flooded) mod = mod - 2;
-	    if (.season == "winter") mod = mod - 1;
-	    if (.season == "summer" && outside && .sunlight > 0) mod = mod + 1;
-	    if (desert && .sunlight > 0) mod = mod + 1;
-	    if (hot) mod = mod + 2;
+	    // Nothing burns down there, at any power. The item engine agrees
+	    // three layers down -- checkIgnite, checkMelt, checkHeat and
+	    // checkEvaporate all refuse an underwater room outright -- so a
+	    // flaming brand underwater has nothing left to do either way.
+	    if (underwater) return -100;
+	    if (contact) {
+		// A wet target and a rain-slicked blade cost the flame its grip.
+		// The clamp means all the wet rows together are still worth one
+		// point: it matters, but not as much as it matters to a bonfire.
+		if (water) mod = mod - 1;
+		if (rain || storm) mod = mod - 1;
+		if (flooded) mod = mod - 1;
+		if (hot) mod = mod + 1; // superheated air feeds the brand
+	    }
+	    else {
+		if (water) mod = mod - 2;
+		if (rain || storm) mod = mod - 2;
+		if (flooded) mod = mod - 2;
+		if (.season == "winter") mod = mod - 1;   // cold damp fuel
+		if (.season == "summer" && outside && blazing) mod = mod + 1;
+		if (desert && blazing) mod = mod + 1;     // preheated and dry
+		if (forest) mod = mod + 1;                // continuous fuel
+		if (hot) mod = mod + 2;                   // a blaze pre-heats
+	    }
 	}
 	else if (element == "cold") {
 	    // Wet gear and water carry heat away far faster than air does.
-	    // These are separate rows in the spec table and stack: a flooded
-	    // room in a storm is worse than either on its own.
+	    // These are separate rows and stack: a flooded room in a storm is
+	    // worse than either on its own.
 	    if (underwater) mod = mod + 1;
 	    else if (water) mod = mod + 1;
-	    if (storm) mod = mod + 1;
 	    if (flooded) mod = mod + 1;
-	    if (.season == "winter") mod = mod + 2;
-	    if (.season == "summer" && outside && .sunlight > 0) mod = mod - 1;
-	    if (desert) {
-		if (.sunlight > 0) mod = mod - 2; // noon in the sand
-		else mod = mod + 1;               // desert nights bite
+	    if (contact) {
+		// A wet target couples to cold -- frostbite in soaked clothes
+		// is interface physics, the same argument as shock's puddle.
+		if (.season == "winter") mod = mod + 1;
+		if (desert && blazing) mod = mod - 1;
+		if (hot) mod = mod - 1;
 	    }
-	    if (hot) mod = mod - 2;
+	    else {
+		if (storm) mod = mod + 1;                 // wind chill
+		if (.season == "winter") mod = mod + 2;
+		if (.season == "summer" && outside && blazing) mod = mod - 1;
+		if (desert) {
+		    if (blazing) mod = mod - 2;           // noon in the sand
+		    else mod = mod + 1;                   // desert nights bite
+		}
+		if (mountain) mod = mod + 1;              // thin air, lapse rate
+		if (hot) mod = mod - 2;
+	    }
 	}
 	else if (element == "shock") {
-	    // Water conducts -- this is the headline case
-	    if (underwater) mod = mod + 3;
-	    else if (water) mod = mod + 2;
+	    // Water conducts -- this is the headline case, and the only element
+	    // whose contact column is allowed to go UP by two.
+	    if (contact) {
+		if (underwater) mod = mod + 2; // immersed in electrolyte
+		else if (water) mod = mod + 2; // the return path through wet ground
+	    }
+	    else {
+		if (underwater) mod = mod + 3;
+		else if (water) mod = mod + 2;
+	    }
 	    if (flooded) mod = mod + 2;
-	    if (storm) mod = mod + 2; // charge already in the air
+	    if (storm) {
+		// Charge already in the air feeds a sky bolt more than it feeds
+		// a shocking blade: the blade only gets the wet skin.
+		if (contact) mod = mod + 1;
+		else mod = mod + 2;
+	    }
 	    else if (rain) mod = mod + 1;
-	    if (desert) mod = mod - 1; // bone-dry air insulates
+	    if (desert) mod = mod - 1; // bone-dry air and ground insulate
 	}
 	else if (element == "acid") {
-	    // Dilution is the whole story
-	    if (underwater) mod = mod - 3;
-	    else if (water) mod = mod - 2;
-	    if (flooded) mod = mod - 2;
-	    if (rain || storm) mod = mod - 2;
-	    if (desert && .sunlight > 0) mod = mod + 1;
-	    if (hot) mod = mod + 1;
+	    if (contact) {
+		// The reaction at an interface takes seconds; a rinse arrives
+		// too late to matter. Submersion washes the splash off while it
+		// is still biting -- so it bites less, it does not fail to bite.
+		if (underwater) mod = mod - 1;
+		if (hot) mod = mod + 1; // hot metal etches faster (Arrhenius)
+	    }
+	    else {
+		// Dilution is the whole story, and a mist cannot survive
+		// submersion at all -- "reduced by three" misdescribes that.
+		if (underwater) return -100;
+		if (water) mod = mod - 2;
+		if (flooded) mod = mod - 2;
+		if (rain || storm) mod = mod - 2;
+		if (desert && blazing) mod = mod + 1; // evaporation concentrates
+		if (hot) mod = mod + 1;
+	    }
 	}
 	else if (element == "poison") {
-	    // Gas model: wind and rain scatter the cloud, closed rooms hold it
-	    if (underwater) mod = mod - 2;
-	    else if (water) mod = mod - 1;
-	    if (flooded) mod = mod - 1;
-	    if (storm) mod = mod - 2;
-	    else if (rain) mod = mod - 1;
-	    if (air) mod = mod - 2;
-	    if (indoors) mod = mod + 1;
+	    // Venom delivered under the skin does not care what the sky is
+	    // doing. That empty contact branch is the whole point of the split:
+	    // a blade or an arrow in the ribs works underwater, in a downpour,
+	    // in winter. Every row below belongs to the GAS model only.
+	    if (!contact) {
+		if (underwater) return -100;          // bubbles, not a cloud
+		if (water) mod = mod - 1;             // spray absorbed
+		if (flooded) mod = mod - 1;
+		if (storm) mod = mod - 2;             // washout and scatter
+		else if (rain) mod = mod - 1;
+		if (air) mod = mod - 2;               // nothing confines it
+		if (indoors) mod = mod + 1;           // confinement concentrates
+		// The temperature terms this row lacked entirely. Cold dense
+		// air pools and holds gas at ground level; thermals lift and
+		// shred a cloud; still air under a canopy keeps it where it
+		// fell; a burning room convects it away.
+		if (.season == "winter") mod = mod + 1;
+		if (desert && blazing) mod = mod - 1;
+		if (forest) mod = mod + 1;
+		if (hot) mod = mod - 1;
+	    }
 	}
 	else if (element == "sand") {
-	    // Needs loose dry particulate, and wet sand is just mud
-	    if (underwater || water || flooded) return -100;
-	    if (desert) mod = mod + 2;
-	    if (rain) mod = mod - 1;
-	    if (storm) mod = mod + 1;
-	    if (air) mod = mod + 1;
-	    if (indoors) mod = mod - 2; // only what the caster brought with them
+	    // Needs loose dry particulate, and wet sand is just mud. Blocks on
+	    // wet GROUND -- the water sectors and the flood affect -- not on a
+	    // stray puddle, which only damps it (see the wet_sector comment).
+	    if (underwater || wet_sector || flooded) return -100;
+	    if (puddles) mod = mod - 1;
+	    if (contact) {
+		// A fist of sand is pressed and thrown in a second: only the
+		// supply of grit around the caster changes anything.
+		if (desert) mod = mod + 1;
+	    }
+	    else {
+		if (desert) mod = mod + 2;   // unlimited supply, day or night
+		if (field) mod = mod + 1;    // loose soil and dust
+		if (air) mod = mod + 1;      // winds aloft keep the flux up
+		if (rain) mod = mod - 1;     // wet grains clump
+		// .sky == 3 is a thunderstorm, and there is no wind input in
+		// the engine to read the gale half of it out of. Soaked
+		// particulate cannot loft, so the rain physics wins over the
+		// wind guess: a sandstorm fizzles in a downpour.
+		if (storm) mod = mod - 1;
+		if (indoors) mod = mod - 2; // only what the caster brought
+	    }
 	}
 	else if (element == "scream") {
-	    // Water carries sound much further, thin air bleeds the pressure
-	    if (underwater) mod = mod + 2;
+	    // Sound is ALWAYS delivered through the medium -- there is no such
+	    // thing as contact acoustics, so kind is deliberately ignored here
+	    // and the mob entry passes "area" on purpose.
+	    if (underwater) mod = mod + 2; // ~4x the speed, far harder coupling
 	    else if (water) mod = mod + 1;
 	    if (flooded) mod = mod + 1;
-	    if (indoors) mod = mod + 1; // reverberation
-	    if (air) mod = mod - 1;
+	    if (indoors) mod = mod + 1;    // reverberation
+	    if (forest) mod = mod - 1;     // vegetation absorbs
+	    if (mountain) mod = mod - 1;   // thin air couples weakly
+	    if (air) mod = mod - 1;        // nothing to reflect from
+	    return .urange(-3, mod, 3);
 	}
 
-	return .urange(-3, mod, 3);
+	return .urange(lo, mod, hi);
+    };
+
+    // The two-argument shape means AREA, and it is kept deliberately rather
+    // than folded into the call above. Two reasons: the area path has four
+    // callers and reads better without a literal at each one, and a hot reload
+    // posts this file and utils/mob seconds apart -- Fenia enforces arity even
+    // for plain .tmp.* calls, so during that gap the not-yet-reloaded mob code
+    // would throw "Not enough arguments" on every weapon swing and every tick
+    // of a burning room. Keeping this signature makes the window harmless: old
+    // callers land on the area rows, which is exactly what they had before.
+    .tmp.room.elementMod = function(room, element) {
+	return .tmp.room.elementModKind(room, element, "area");
     };
 
     // AREA entry for fire. The contact entry (.tmp.mob.effectFire) reaches the
