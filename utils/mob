@@ -932,6 +932,61 @@
 	    ch.recho(._("{BТело %1$C2 сводит судорогой.{x"), ch);
 	    // daze is measured in pulses, and setDaze in C++ only ever raises it
 	    ch.daze = .max(ch.daze, .urange(8, shock_power * 2, 20));
+
+	    // A big jolt travels up a METAL weapon and opens the hand. Gated
+	    // hard, because this is the only PvP-relevant behaviour the port
+	    // adds: power 8+ (lightning bolt and up -- a shocking blade is 2),
+	    // a SECOND save at double the level, and then a luck roll the
+	    // victim can win. Water can carry a weaker spell over the line via
+	    // elementMod, which is the point of standing in a puddle.
+	    if (shock_power >= 8 && !ch.saves_spell(ch, shock_power * 20, "lightning"))
+		.tmp.mob.shockDropWeapon(ch);
 	}
+    };
+
+    // Knock a cramped hand's weapon loose. This mirrors the success branch of
+    // SkillCommand("disarm").apply deliberately: canRemove refuses a NOREMOVE
+    // weapon, can_drop_obj keeps nodrop gear in the inventory instead of
+    // deleting it, and the off-hand weapon is promoted -- skip that last step
+    // and the victim fights on with an empty main hand and a full off-hand.
+    .tmp.mob.shockDropWeapon = function(ch) {
+	var room; room = ch.in_room;
+	if (room == null) return false;
+
+	var weapon; weapon = ch.get_eq_char("wield");
+	if (!.tmp.object.valid(weapon)) return false;
+	if (!weapon.material.metal) return false; // a wooden haft insulates
+	if (!.tmp.object.canRemove(weapon)) return false;
+
+	// Luck fights the spasm -- the avoidance idiom, and ch is the one
+	// avoiding, so the luck is theirs to spend
+	if (.tmp.chance(20, ch)) return false;
+
+	weapon.unequip();
+	var dropped; dropped = ch.can_drop_obj(weapon);
+	if (dropped) .tmp.object.dropObj(null, weapon, false, room);
+
+	if (dropped) {
+	    ch.act(._("{BСудорога разжимает твою ладонь, и %1$O1 со звоном пада%1$nет|ют %2$s!{x"),
+		weapon, .tmp.room.dropWhere(room));
+	    ch.recho(._("{BСудорога разжимает ладонь %1$C2, и %2$O1 со звоном пада%2$nет|ют %3$s!{x"),
+		ch, weapon, .tmp.room.dropWhere(room));
+	}
+	else {
+	    ch.act(._("{BСудорога разжимает твою ладонь, и %1$O1 выскальзыва%1$nет|ют из пальцев.{x"),
+		weapon);
+	    ch.recho(._("{BСудорога разжимает ладонь %1$C2, и %2$O1 выскальзыва%2$nет|ют из пальцев.{x"),
+		ch, weapon);
+	}
+
+	var sw; sw = ch.get_eq_char("second_wield");
+	if (sw != null) {
+	    ch.act(._("Ты перехватываешь %1$O4 в основную руку."), sw);
+	    ch.recho(._("%1$^C1 перехватыва%1$nет|ют %2$O4 в основную руку."), ch, sw);
+	    sw.unequip();
+	    sw.wear("wield");
+	}
+
+	return true;
     };
 })
