@@ -325,7 +325,14 @@
 	save = 50 + (affect.level - dispel_level) * 5;
 	save = .urange(5, save, 95);
 	
-	if (ch != null) return .tmp.chance(100 - save, ch);
+	// ch is the one ATTEMPTING the dispel, so their luck rolls the dispel
+	// chance -- and the result has to be inverted, because this function
+	// answers "did the affect save". Without the inversion the whole thing
+	// ran backwards for every caster-driven call: a hero could not put out
+	// a campfire (95% dispel chance read as a 95% save) while a novice
+	// reliably quenched dragon-fire. The ch == null branch and the object
+	// twin .tmp.object.savesDispel both return the save chance directly.
+	if (ch != null) return !.tmp.chance(100 - save, ch);
 	else return .chance(save);
     };
     
@@ -500,7 +507,18 @@
 	// this on the modulated value would mean iceball and white dragon breath
 	// can never put out the fire they were cast into. Freezing the floor
 	// items below still goes through the modulated power.
-	if (power >= 8) .tmp.room.extinguish(room, power * 10, source_ch);
+	//
+	// The dispel level is the caster's own when it beats the power scale.
+	// savesDispel weighs it against the heat affect's level, and a room lit
+	// by .tmp.room.effectFire burns at power * 10 + 1 -- up to 101 -- so a
+	// flat 80 would leave a hero mage failing against dragon-fire where the
+	// legacy call, which passed the spell level, gave them even odds.
+	if (power >= 8) {
+	    var dispel_level; dispel_level = power * 10;
+	    if (source_ch != null && source_ch.level > dispel_level)
+		dispel_level = source_ch.level;
+	    .tmp.room.extinguish(room, dispel_level, source_ch);
+	}
 
 	power = .urange(0, power + .tmp.room.elementMod(room, "cold"), 10);
 	if (power == 0) return;
