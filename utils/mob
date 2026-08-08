@@ -721,10 +721,15 @@
     // Now depends on fire power, not fire damage dealt
     .tmp.mob.effectFire = function(ch, fire_power, heat_items, apply_damage) {
 	if (!.tmp.mob.valid(ch)) return;
-	fire_power = .urange(0, fire_power, 10); // cap fire_power at 10
+	var room; room = ch.in_room;
+	// What the caller asked for, kept for decisions that must not drift with
+	// the weather -- see the thirst gate below
+	var source_power; source_power = fire_power;
+	// The surroundings feed or fight the element before anything else does
+	fire_power = .urange(0, fire_power + .tmp.room.elementMod(room, "fire"), 10);
+	if (fire_power == 0) return; // underwater, pouring rain: nothing happens
 	var to_save; to_save = .urange(1, 100 - fire_power * 10, 99);
 	var items_affected; items_affected = 0; // capped by fire_power
-	var room; room = ch.in_room;
 
 	// Burn/heat gear first -- so that ch could see it
 	// NB: Immunity to fire or protection prevents damage to ch, not to items
@@ -777,8 +782,18 @@
 	if (ch.isAffected("chill touch") && .chance(50 + fire_power))
 	    ch.affectStrip("chill touch", true); // dispel frostbite
 	    
-	// Heat makes Jack thirsty
-	if (!ch.is_npc()) ch.cond_thirst = ch.cond_thirst + fire_power * 10;
+	// Heat makes Jack thirsty. Two traps live on this one line.
+	// The setter GAINS what it is given (desire->gain), it does not assign,
+	// so feeding the current reading back in gains the whole bar twice over.
+	// And the scale runs -6 (dying of thirst) to 96 (sated), so a PENALTY has
+	// to be NEGATIVE: the legacy effects.cpp passed a positive dam/20 under a
+	// "getting thirsty" comment, which quenched thirst instead.
+	// Only a real blaze or a real spell parches -- a flaming sword lands
+	// several times a round and would outdrain the burning room it started.
+	// Gated on the REQUESTED power, not the modulated one: a flaming blade
+	// is power 2 whether or not the room it swings in happens to be hot.
+	if (!ch.is_npc() && source_power >= 4)
+	    ch.cond_thirst = -1 * .max(1, source_power / 4);
 	
 	if (.tmp.mob.isBlind(ch)
 	    || !(ch.parts & .tables.part_flags.eye) 
@@ -797,18 +812,126 @@
 	    af.modifier         = -1 * .max(4, fire_power + 1);
 	    ch.affectAdd(af);
 	}
-	
-	// Check "room temperature", get total fire_power (current fire + new)
-	var room_temperature; room_temperature = fire_power;
-	var fire; fire = room.get_obj_vnum(39001);
-	if (fire != null) room_temperature = room_temperature + .max(4, fire.fire_time / 4);
-	
-	// Create fire or burn the whole room if the temperature is high enough
-	if (.chance(room_temperature)) {
-	    .tmp.object.createFire(room, null, fire_power);
-	    if (room_temperature >= 10 && .tmp.room.canBurn(room))
-		.tmp.room.burn(room, fire_power * 10 + 1, fire_power/2 + 1);
+
+	// Setting the ROOM alight belongs to .tmp.room.effectFire, not here.
+	// This used to end with a createFire/burn roll at room_temperature =
+	// fire_power, which meant a flaming sword had a couple of percent per
+	// swing to start a bonfire in the tavern. Contact effects reach the
+	// victim and the victim's gear; only area effects reach the room.
+    };
+
+    // cold_effect analog from C++: freeze gear and chill the victim, but don't
+    // damage unless apply_damage. Depends on cold power, not on damage dealt.
+    // Cold power mirrors fire_power: 1 winter air, 2 frost weapon, 4 blizzard,
+    // 8 frost spells, 10 white dragon breath.
+    .tmp.mob.effectCold = function(ch, cold_power, freeze_items, apply_damage) {
+	if (!.tmp.mob.valid(ch)) return;
+	// What the caller asked for, kept for the hunger gate below
+	var source_power; source_power = cold_power;
+	// The surroundings feed or fight the element before anything else does
+	cold_power = .urange(0, cold_power + .tmp.room.elementMod(ch.in_room, "cold"), 10);
+	if (cold_power == 0) return;
+	var to_save; to_save = .urange(1, 100 - cold_power * 10, 99);
+	var items_affected; items_affected = 0; // capped by cold_power
+
+	// Freeze gear first -- so that ch could see it
+	// NB: Immunity to cold or protection prevents damage to ch, not to items
+	for (obj in ch.items) {
+	    if (!freeze_items) break;
+	    if (obj.in_obj != null) continue; // ignore items inside containers
+	    // Chance to freeze anything depends on cold_power
+	    if (.tmp.chance(to_save, ch)) break;
+	    if (!.tmp.object.applyCold(obj, null, cold_power, false))
+		continue; // didn't affect item? let's try another one
+
+	    if (!.tmp.mob.valid(ch)) return; // double-check if ch is still alive
+
+	    if (apply_damage && items_affected >= .urange(1, cold_power / 4, 3)) break;
+	    else if (items_affected >= .urange(1, cold_power / 3, 4)) break; // higher cap for DOT
+	    else items_affected = items_affected + 1;
 	}
 
-    };    
+	if (ch.isAffected("protection cold")) return;
+
+	if (ch.isImmune("cold", ""))
+	    return; // no effect if protected
+
+	// DAMAGE, if applicable -- use for DOT (e.g. a future blizzard affect)
+	if (apply_damage) {
+	    var dam; dam = .dice(ch.level, cold_power * 2);
+	    ch.rawdamage(ch, dam, "cold", "self");
+	    if (!.tmp.mob.valid(ch)) return; // check if ch is still alive
+	}
+
+	// The cold sucks the warmth out of Jack, and Jack gets hungry. Negative
+	// for the same reason as thirst in effectFire: the setter gains, and the
+	// bar runs -6 (starving) to 96 (fed), so a penalty counts down. Gated on
+	// the requested power too, or a frost blade would starve people all
+	// winter on the strength of the season bonus alone.
+	if (!ch.is_npc() && source_power >= 4)
+	    ch.cond_hunger = -1 * .max(1, source_power / 4);
+
+	if (ch.isAffected("chill touch")) return; // already frostbitten
+
+	if (!ch.saves_spell(ch, cold_power * 10, "cold")) {
+	    ch.act(._("{CХолод окутывает тебя и проникает до самых костей.{x"));
+	    ch.recho(._("{CВолна холода пронизывает %1$C4.{x"), ch);
+	    var af; af = .Affect();
+	    af.type		= "chill touch";
+	    af.level		= cold_power * 10 + 1;
+	    af.duration		= cold_power / 2 + 1;
+	    af.location		= .tables.apply_flags.str;
+	    af.modifier		= -1 * .max(1, cold_power / 3);
+	    ch.affectJoin(af);
+	}
+    };
+
+    // shock_effect analog from C++: discharge into gear and daze the victim,
+    // but don't damage unless apply_damage. Depends on shock power, not damage.
+    // Shock power mirrors fire_power: 1 static spark, 2 shocking weapon,
+    // 4 shocking grasp, 8 lightning bolt, 10 blue dragon breath.
+    .tmp.mob.effectShock = function(ch, shock_power, affect_items, apply_damage) {
+	if (!.tmp.mob.valid(ch)) return;
+	// The surroundings feed or fight the element before anything else does:
+	// water conducts, so a discharge in a flooded room hits far harder
+	shock_power = .urange(0, shock_power + .tmp.room.elementMod(ch.in_room, "shock"), 10);
+	if (shock_power == 0) return;
+	var to_save; to_save = .urange(1, 100 - shock_power * 10, 99);
+	var items_affected; items_affected = 0; // capped by shock_power
+
+	// Discharge into the gear first -- so that ch could see it
+	// NB: Immunity to lightning prevents damage to ch, not to items
+	for (obj in ch.items) {
+	    if (!affect_items) break;
+	    if (obj.in_obj != null) continue; // ignore items inside containers
+	    // Chance to hit anything depends on shock_power
+	    if (.tmp.chance(to_save, ch)) break;
+	    if (!.tmp.object.applyShock(obj, null, shock_power, false))
+		continue; // didn't affect item? let's try another one
+
+	    if (!.tmp.mob.valid(ch)) return; // double-check if ch is still alive
+
+	    if (apply_damage && items_affected >= .urange(1, shock_power / 4, 3)) break;
+	    else if (items_affected >= .urange(1, shock_power / 3, 4)) break; // higher cap for DOT
+	    else items_affected = items_affected + 1;
+	}
+
+	if (ch.isImmune("lightning", ""))
+	    return; // no effect if protected
+
+	// DAMAGE, if applicable -- use for DOT (e.g. a future storm affect)
+	if (apply_damage) {
+	    var dam; dam = .dice(ch.level, shock_power * 2);
+	    ch.rawdamage(ch, dam, "lightning", "self");
+	    if (!.tmp.mob.valid(ch)) return; // check if ch is still alive
+	}
+
+	// Daze and confused: muscles lock up for a couple of rounds
+	if (!ch.saves_spell(ch, shock_power * 10, "lightning")) {
+	    ch.act(._("{BТвое тело парализовано.{x"));
+	    ch.recho(._("{BТело %1$C2 сводит судорогой.{x"), ch);
+	    // daze is measured in pulses, and setDaze in C++ only ever raises it
+	    ch.daze = .max(ch.daze, .urange(8, shock_power * 2, 20));
+	}
+    };
 })
