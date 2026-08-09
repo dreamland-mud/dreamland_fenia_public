@@ -352,8 +352,15 @@
 	}
 	
 	var puddle; puddle = .get_obj_index(75).create();
+	// The prototype (vnum 75) ships "%s" placeholders. short_descr and
+	// description are RU-only setters, so EN and UA must be filled explicitly
+	// or the raw template leaks into the decay message.
 	puddle.short_descr = "луж|а|и|е|у|ей|е воды";
+	puddle.setShort("a puddle of water", 0);
+	puddle.setShort("калюж|а|і|і|у|ею|і води", 2);
 	puddle.description = "{xДождевая лужа хлюпает под ногами.";
+	puddle.setDescr("{xA rain puddle squelches underfoot.", 0);
+	puddle.setDescr("{xДощова калюжа хлюпає під ногами.", 2);
 	puddle.name = "puddle water дождевая лужа воды";
 	puddle.timer = .number_range(1, 3);
 	puddle.value2 = liq.index;
