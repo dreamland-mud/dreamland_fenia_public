@@ -150,10 +150,11 @@
 		obj.item_type == .tables.item_table.weapon);
     };	
     
-    // Return obj weapon class as a string
+    // Return obj weapon class as a string. Reads the affected class, so a
+    // weapon carrying a weapon_class override answers with what it fights as.
     .tmp.object.getWeaponClass = function(obj) {
 	if (.tmp.object.isWeapon(obj))
-	    return .tables.weapon_class.names(obj.value0);
+	    return .tables.weapon_class.names(obj.weapon_class);
 	else return "";
     };
     
