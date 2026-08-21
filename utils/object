@@ -252,7 +252,7 @@
     // Callers that need the puddle to land somewhere the normal way should use
     // create_puddle; this one is for places that must bypass its room checks,
     // e.g. an affect handler that runs while the room still reads as water.
-    .tmp.object.make_puddle = function(liquid, amount) {
+    .tmp.object.make_puddle = function(liquid, amount, poisoned) {
 	if (amount == null) amount = 50; // default
 	var liq;
 	try {liq = .Liquid(liquid);} catch (e);
@@ -272,12 +272,16 @@
 	puddle.value0 = amount;
 	puddle.value1 = amount;
 	puddle.value2 = liq.index;
+	// A puddle of poisoned drink stays poisoned -- otherwise filling a bottle
+	// from it launders the poison out (Trello: puddle washes poison).
+	if (poisoned == true)
+	    puddle.value3 = .set_bit(puddle.value3, .tables.drink_flags.poisoned);
 	return puddle;
     };
 
     // Create a puddle of any liquid
     // TO-DO: possibly replace with C++ implementation
-    .tmp.object.create_puddle = function(liquid, room, amount) {
+    .tmp.object.create_puddle = function(liquid, room, amount, poisoned) {
 	if (amount == null) amount = 50; // default
 	if (room == null) return;
 	var liq;
@@ -291,7 +295,7 @@
 	    return;
 	}
 
-	var puddle; puddle = .tmp.object.make_puddle(liquid, amount);
+	var puddle; puddle = .tmp.object.make_puddle(liquid, amount, poisoned);
 	if (puddle == null) return;
 	.tmp.object.dropObj(null, puddle, false, room);
 	
