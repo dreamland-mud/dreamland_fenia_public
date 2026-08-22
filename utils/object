@@ -320,11 +320,15 @@
 	    for (a in room.affected) 
 		if (a.type == "heat") aff = a;
 		
-	    if (liq.isBooze()) { // Alcohol feeds fire
+	    if (liq.isBooze()) { // Alcohol flares up in the surrounding heat
 		room.echo(._("%1$^O1 воспламеня%1$nется|ются от бушующего вокруг пламени!"), puddle);
-		fire.fire_time = fire.fire_time + .max(1, amount / 50);
-		fire.timer = fire.timer + .max(1, amount / 50) + 1;
-		puddle.extract(true);	
+		// A heat *affect* need not have a physical fire object (vnum 39001);
+		// only feed one if it's actually present, else this derefs null.
+		if (fire != null) {
+		    fire.fire_time = fire.fire_time + .max(1, amount / 50);
+		    fire.timer = fire.timer + .max(1, amount / 50) + 1;
+		}
+		puddle.extract(true);
 		return;
 	    }
 	    
