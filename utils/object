@@ -252,7 +252,7 @@
     // Callers that need the puddle to land somewhere the normal way should use
     // create_puddle; this one is for places that must bypass its room checks,
     // e.g. an affect handler that runs while the room still reads as water.
-    .tmp.object.make_puddle = function(liquid, amount) {
+    .tmp.object.make_puddle = function(liquid, amount, poisoned) {
 	if (amount == null) amount = 50; // default
 	var liq;
 	try {liq = .Liquid(liquid);} catch (e);
@@ -272,12 +272,29 @@
 	puddle.value0 = amount;
 	puddle.value1 = amount;
 	puddle.value2 = liq.index;
+
+	// A poisoned drink poured out leaves a poisoned puddle -- otherwise filling a
+	// bottle from it (or drinking it) launders the poison away (Trello: puddle washes
+	// poison). The marker is a "poison" AFFECT, NOT the value3 drink-flag: the puddle is
+	// a fountain (vnum 75) whose value3 is its max-people count (Item::furnitureMaxPeople),
+	// never read as poison by drink/fill, so a value3 stamp would be a fake fix. The Fenia
+	// drink and fill overrides read isAffected("poison") off the source. Mirrors the
+	// fountain-poison precedent (midgaard obj 3135 q5379). Level is a nominal marker --
+	// the drinker's poison strength is recomputed from the sip amount by the drink override.
+	if (poisoned == true) {
+	    var af; af = .Affect();
+	    af.type = "poison";
+	    af.duration = puddle.timer;
+	    af.level = 10;
+	    puddle.affectJoin(af);
+	}
+
 	return puddle;
     };
 
     // Create a puddle of any liquid
     // TO-DO: possibly replace with C++ implementation
-    .tmp.object.create_puddle = function(liquid, room, amount) {
+    .tmp.object.create_puddle = function(liquid, room, amount, poisoned) {
 	if (amount == null) amount = 50; // default
 	if (room == null) return;
 	var liq;
@@ -291,7 +308,7 @@
 	    return;
 	}
 
-	var puddle; puddle = .tmp.object.make_puddle(liquid, amount);
+	var puddle; puddle = .tmp.object.make_puddle(liquid, amount, poisoned);
 	if (puddle == null) return;
 	.tmp.object.dropObj(null, puddle, false, room);
 	
