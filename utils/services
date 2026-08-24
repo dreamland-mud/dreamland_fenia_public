@@ -285,7 +285,13 @@
 	    }
 	    service.argument = target;
 	}
-	
+
+	if (service.target == "optstring") {
+	    // Optional argument (e.g. sage advice for one wear slot). Empty is fine --
+	    // the service handler falls back to its default behaviour.
+	    service.argument = target;
+	}
+
 	// Player can bring their own horseshoes: check if blacksmith can see them
 	if (service.name == "horseshoe" && target != "") {
 	    var horseshoe; horseshoe = client.get_obj_carry(target, mob);
