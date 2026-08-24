@@ -395,7 +395,7 @@
 		msg = msg + "Этому предмету уже ничего не поможет.";
 	    else if (service.object.level > mob.level)
 		msg = msg + "Этот предмет мне не по силам, найди кого-то опытнее меня.";
-	    else if (service.name != "identify" && service.object.cost == 0) { // Can't service an object with zero cost
+	    else if (service.name != "identify" && service.name != "repair" && service.object.cost == 0) { // repair & identify mend valueless items too (player-mend parity)
 		msg = msg + .fmt("{1%1$^O1{2 ничего не стоит, я не смогу услугу %2$N4 на вещи без стоимости.", 
 		    service.object, service.nameRus);
 		msg = msg + .fmt("{/Ты случайно не из ямы для пожертвований %1$P2 вытащил%2$Gо||а?", 
