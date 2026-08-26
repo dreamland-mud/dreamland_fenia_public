@@ -449,10 +449,12 @@
 		// Most spells have helpers to check for eligibility
 		// Try finding an eligibility helper, then visualize the results
 		var spell; spell = .Spell(service.spell);
-		// checkObject builds its refusal with ch.print, so it needs the
-		// caster -- here the enchanter -- exactly like checkActors below.
+		// checkObject renders its refusal via ch.print, so pass the VIEWER
+		// (client, or its master) -- the mob would leak its own language,
+		// exactly like every viewer.print refusal above. checkActors (char
+		// services) still needs the mob: its checks read the caster's state.
 		if (spell.checkObject != null)
-		    msg = spell.checkObject(mob, service.object);
+		    msg = spell.checkObject(viewer, service.object);
 
 
 	    } else {
