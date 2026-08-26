@@ -314,15 +314,15 @@
 	if ((ch.good && obj.extra_flags & .tables.extra_flags.anti_good) ||
 	    (ch.neutral && obj.extra_flags & .tables.extra_flags.anti_neutral) ||
 	    (ch.evil && obj.extra_flags & .tables.extra_flags.anti_evil))
-	    msg = msg + .fmt("Твоя натура не позволяет тебе использовать %1$O4.", obj);
+	    msg = msg + ch.print(._("Твоя натура не позволяет тебе использовать %1$O4."), obj);
 	
 	// Can't wear due to level    
 	if (obj.level > ch.level + ch.profession.wearModifier(obj.item_type))
-	    msg = msg + .fmt("Тебе не хватает опыта, чтобы использовать %1$O4.", obj);
+	    msg = msg + ch.print(._("Тебе не хватает опыта, чтобы использовать %1$O4."), obj);
 	
 	// Can't wear limit -- too experienced
 	if (obj.pIndexData.limit > 0 && obj.level < ch.modifyLevel - 20)
-	    msg = msg + .fmt("Ты слишком опыт%1$Gен|ен|на, чтобы использовать %2$O4.", ch, obj);
+	    msg = msg + ch.print(._("Ты слишком опыт%1$Gен|ен|на, чтобы использовать %2$O4."), ch, obj);
 	
 	// Can't wear due to wearlocs
 	if (!ch.is_npc()) {
@@ -330,7 +330,7 @@
 	    for (w in obj.wearlocs)
 		if (ch.hasWearloc(w.name)) found = true;
 	    if (!found)
-		msg = msg + .fmt("Тебе некуда надеть %1$O4.", obj);
+		msg = msg + ch.print(._("Тебе некуда надеть %1$O4."), obj);
 	}
 	
 	return msg;
