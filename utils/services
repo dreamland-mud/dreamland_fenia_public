@@ -600,7 +600,7 @@
 	    new_price = old_price - .div(old_price * roll, 100);
 	    new_price = .max(old_price/2, new_price);
 	    client.act(._("Ты отчаянно торгуешься с %1$C5, сбивая цену на %2$s."),
-		mob, .tmp.currency.printMoney(old_price - new_price));
+		mob, .tmp.currency.printMoney(old_price - new_price, client.displayLang));
 	    client.recho(._("%1$^C1 отчаянно торгу%1$nется|ются с %2$C5 -- %1$P3 палец в рот не клади."),
 		client, mob);
 	    if (.Skill("haggle").usable(client))
@@ -630,13 +630,13 @@
 		mob.rvecho(client, ._("%1$^C1 что-то говор%1$nит|ят %2$C3."), mob, client);
 		if (service.name == "repair" && service.repair_list != null) {
 		    mob.psay(client, ._("Я могу отремонтировать тебе {1{C%1$d{x{2 предмет%1$I|а|ов за %2$s."),
-			service.repair_list.size(), .tmp.currency.printMoney(service.price_silver));
+			service.repair_list.size(), .tmp.currency.printMoney(service.price_silver, client.displayLang));
 		}
 		else if (service.object != null)
 		    mob.psay(client, ._("Исходя из состояния и уровня {1%1$O2{2, услуга %2$N2 на %1$P4 обойдется в %3$s."),
-			service.object, service.nameRus, .tmp.currency.printMoney(service.price_silver));
+			service.object, .tmp.system.lmsg(client.displayLang, service.name, service.nameRus, service.nameUkr), .tmp.currency.printMoney(service.price_silver, client.displayLang));
 		else mob.psay(client, ._("Исходя из твоего уровня, услуга %1$N2 обойдется в %2$s."),
-			service.nameRus, .tmp.currency.printMoney(service.price_silver));
+			.tmp.system.lmsg(client.displayLang, service.name, service.nameRus, service.nameUkr), .tmp.currency.printMoney(service.price_silver, client.displayLang));
 		mob.psay(client, ._("Ты соглас%1$Gен|ен|на? Надо {1{y{hcсказать да{x{2 или просто запросить услугу еще раз."), client);
 		mob.psay(client, ._("Чтобы отменить, надо {1{y{hcсказать нет{x{2 -- или я просто забуду об этом через 5 минут."));
 		mob.serviceEstimate[client.name] = service;
