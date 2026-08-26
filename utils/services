@@ -361,81 +361,90 @@
     .tmp.mob.canPerformService = function(mob, client, service) {
 	var msg; msg = "";
 	var price_gold, price_qp; price_gold = price_qp = 0;
-	var can_afford_gold, can_afford_qp; 
+	var can_afford_gold, can_afford_qp;
 	can_afford_gold = can_afford_qp = true;
-	
+
+	// Every refusal renders in the requester's language (a charmed follower's
+	// refusal shows to its master). Each string goes through viewer.print(._(ru))
+	// so the frame comes from the catalog AND the %O/%C nouns localize per viewer
+	// (.fmt would render them in LANG_DEFAULT). msg MUST stay a string -- the
+	// != "" gates below and the mob.say caller would crash on a MultiMessage, and
+	// viewer.print returns a string. The service name is a Flexer pad in RU/UA and
+	// the plain internal name in EN, so svcname is picked by lang and passed to
+	// %N<case> (which declines a pad and passes a padless EN name through).
+	var viewer; if (client.is_npc() && client.master != null) viewer = client.master; else viewer = client;
+	var lang; lang = viewer.displayLang;
+
 	if (!.tmp.mob.canServe(mob, client) || service == null) {
-	    msg = "Что-то пошло не так, попробуй еще раз.";
-	    return msg; // sanity check
+	    return viewer.print(._("Что-то пошло не так, попробуй еще раз.")); // sanity check
 	}
+
+	var svcname; if (lang == 0) svcname = service.name; else if (lang == 2) svcname = service.nameUkr; else svcname = service.nameRus;
 
 	// NPCs are eligible only for healer services
 	if (client.is_npc() && !service.npc_ok)
-	    msg = msg + "Эта услуга доступна только для игроков.";
+	    msg = msg + viewer.print(._("Эта услуга доступна только для игроков."));
 	if (service.name == "locate") {
 	    if (client.getClan() == "BATTLERAGER" ||
 		(client.is_npc() && client.master != null && client.master.getClan() == "BATTLERAGER"))
-		msg = msg + .fmt("Я опасаюсь прогневать воинов Клана Ярости своими заклинаниями.");	
+		msg = msg + viewer.print(._("Я опасаюсь прогневать воинов Клана Ярости своими заклинаниями."));
 	}
 	else if (service.name == "horseshoe") {
 	    if (!client.hasWearloc("hooves"))
-		msg = msg + "Ну и куда же тебе подковки приделать?";
+		msg = msg + viewer.print(._("Ну и куда же тебе подковки приделать?"));
 	    else if (service.object != null) {
 		if (!.tmp.object.hasWearloc(service.object, "hooves"))
-		    msg = msg + .fmt("Я не смогу приделать {1%1$O4{2 к твоим копытам.", 
-			service.object);
+		    msg = msg + viewer.print(._("Я не смогу приделать {1%1$O4{2 к твоим копытам."), service.object);
 		else if (service.object.worn)
-		    msg = msg + .fmt("Я не смогу изменить {1%1$O4{2 на тебе -- принеси мне новые подковы.", 
-			service.object);
+		    msg = msg + viewer.print(._("Я не смогу изменить {1%1$O4{2 на тебе -- принеси мне новые подковы."), service.object);
 		else if (service.object.material.metal && client.profession.name == "druid")
-		    msg = msg + "Тебе нельзя носить металлические вещи.";
+		    msg = msg + viewer.print(._("Тебе нельзя носить металлические вещи."));
 		else msg = .tmp.mob.wearCheck(client, service.object);
 	    }
 	    else if (client.profession.name == "druid")
-		msg = msg + "Тебе нельзя носить металлические вещи, принеси мне подковы из другого материала.";
+		msg = msg + viewer.print(._("Тебе нельзя носить металлические вещи, принеси мне подковы из другого материала."));
 	}
 	if (msg != "") return msg;
-	
+
 	if (service.object != null) {
 	    if (!.tmp.object.valid(service.object))
-		msg = msg + "Этому предмету уже ничего не поможет.";
+		msg = msg + viewer.print(._("Этому предмету уже ничего не поможет."));
 	    else if (service.object.level > mob.level)
-		msg = msg + "Этот предмет мне не по силам, найди кого-то опытнее меня.";
+		msg = msg + viewer.print(._("Этот предмет мне не по силам, найди кого-то опытнее меня."));
 	    else if (service.name != "identify" && service.name != "repair" && service.object.cost == 0) { // repair & identify mend valueless items too (player-mend parity)
-		msg = msg + .fmt("{1%1$^O1{2 ничего не стоит, я не смогу услугу %2$N4 на вещи без стоимости.", 
-		    service.object, service.nameRus);
-		msg = msg + .fmt("{/Ты случайно не из ямы для пожертвований %1$P2 вытащил%2$Gо||а?", 
+		msg = msg + viewer.print(._("{1%1$^O1{2 ничего не стоит, я не смогу услугу %2$N4 на вещи без стоимости."),
+		    service.object, svcname);
+		msg = msg + viewer.print(._("{/Ты случайно не из ямы для пожертвований %1$P2 вытащил%2$Gо||а?"),
 		    service.object, client);
-		msg = msg + .fmt("{/{DЕсли нет, попробуй сообщить Богам об ошибке.{x");
+		msg = msg + viewer.print(._("{/{DЕсли нет, попробуй сообщить Богам об ошибке.{x"));
 	    }
 	    else if (service.name != "identify" && !client.can_drop_obj(service.object) && !service.object.worn) {
-		msg = msg + .fmt("Ты не сможешь передать мне {1%1$O4{2 для услуги %2$N2.", 
-		    service.object, service.nameRus);
-		msg = msg + .fmt("{/Или надень, или избавь эту вещь от проклятия.");
+		msg = msg + viewer.print(._("Ты не сможешь передать мне {1%1$O4{2 для услуги %2$N2."),
+		    service.object, svcname);
+		msg = msg + viewer.print(._("{/Или надень, или избавь эту вещь от проклятия."));
 	    }
 	    else if (service.name == "repair") {
 		if (service.object.item_type != .tables.item_table.armor &&
 		    service.object.item_type != .tables.item_table.weapon &&
 		    !mob.pIndexData.behaviors.has("enchanter")) {
-		    msg = msg + "Я могу ремонтировать только броню и оружие.";
-		    msg = msg + .fmt("{/Починить {1%1$O4{2 можно только магией у чародеев.", 
-			service.object);
+		    msg = msg + viewer.print(._("Я могу ремонтировать только броню и оружие."));
+		    msg = msg + viewer.print(._("{/Починить {1%1$O4{2 можно только магией у чародеев."), service.object);
 		}
 		else if (service.object.condition == 100)
-		    msg = msg + .fmt("{1%1$^O1{2 не нужда%1$nется|ются в %2$N6.", 
-			service.object, service.nameRus);				
+		    msg = msg + viewer.print(._("{1%1$^O1{2 не нужда%1$nется|ются в %2$N6."),
+			service.object, svcname);
 	    }
 	}
 	if (msg != "") return msg;
-	    
+
 	// If the service requires casting, check for mana and other limitations
 	if (service.spell != null && service.spell != "") {
 	    // No casts on battleragers
 	    if (client.getClan() == "BATTLERAGER" ||
 		(client.is_npc() && client.master != null && client.master.getClan() == "BATTLERAGER"))
-		msg = msg + .fmt("Я опасаюсь прогневать воинов Клана Ярости своими заклинаниями.");	
+		msg = msg + viewer.print(._("Я опасаюсь прогневать воинов Клана Ярости своими заклинаниями."));
 	    else if (mob.mana < .Skill(service.spell).mana(mob))
-		msg = msg + .fmt("Погоди, %C1, дай мне пару минут перевести дух и восстановить энергию.", client);
+		msg = msg + viewer.print(._("Погоди, %1$C1, дай мне пару минут перевести дух и восстановить энергию."), client);
 	    else if (service.target == "object") {
 		// Most spells have helpers to check for eligibility
 		// Try finding an eligibility helper, then visualize the results
@@ -453,37 +462,37 @@
 		if (spell.checkActors != null)
 		    msg = spell.checkActors(mob, client);
 	    }
-	    
+
 	}
 	if (msg != "") return msg;
-	
+
 	// Check if client (or client master for NPCs) has enough resources
 	// Prices are set, estimated (for dynamic services) and adjusted earlier
 	if (client.is_npc()) {
 	    if (!.tmp.currency.canAfford(client.master, service.price_gold, "gold") ||
-		    (service.price_silver != null && 
+		    (service.price_silver != null &&
 		     !.tmp.currency.canAfford(client.master, service.price_silver, "silver")))
-		can_afford_gold = false;   
+		can_afford_gold = false;
 	    if (!.tmp.currency.canAfford(client.master, service.price_qp, "qp"))
-		can_afford_qp = false;     
-	    
+		can_afford_qp = false;
+
 	    if (!can_afford_gold || !can_afford_qp)
-		msg = msg + .fmt("У тво%1$Gего|его|ей|их хозя%1$Gина|ина|йки|ев не хватит %2$gденег|квесточков на эту услугу, %3$C1.", 
+		msg = msg + viewer.print(._("У тво%1$Gего|его|ей|их хозя%1$Gина|ина|йки|ев не хватит %2$gденег|квесточков на эту услугу, %3$C1."),
 		    client.master, can_afford_gold, client);
 	}
 	else {
 	    if (!.tmp.currency.canAfford(client, service.price_gold, "gold") ||
-		    (service.price_silver != null && 
+		    (service.price_silver != null &&
 		     !.tmp.currency.canAfford(client, service.price_silver, "silver")))
-		can_afford_gold = false;   
+		can_afford_gold = false;
 	    if (!.tmp.currency.canAfford(client, service.price_qp, "qp"))
-		can_afford_qp = false;    
-	    
+		can_afford_qp = false;
+
 	    if (!can_afford_gold || !can_afford_qp)
-		msg = msg + .fmt("У тебя не хватит %1$gденег|квесточков на эту услугу, %2$C1.", 
+		msg = msg + viewer.print(._("У тебя не хватит %1$gденег|квесточков на эту услугу, %2$C1."),
 		    can_afford_gold, client);
-	}  
-	
+	}
+
 	return msg;
     };
 
