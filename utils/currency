@@ -106,34 +106,69 @@
     
     // Input amount in both gold in silver, output formatted "X gold and Y silver" or just "X gold|silver"
     // Put them in nominative (1), genitive (2) or accusative (4) grammatical cases.
+    // RU-default wrapper kept for legacy callers (and any Fenia-DB orphan): the
+    // 4-arg *Lang core is the real one -- pass ch.displayLang so coins render per viewer.
     .tmp.currency.printGoldSilver = function(gold, silver, gcase) {
+	return .tmp.currency.printGoldSilverLang(gold, silver, gcase, 1);
+    };
+
+    // lang: 0=EN, 1=RU, 2=UA. EN is case-free (English doesn't decline); RU kept
+    // byte-identical to the old strings (the universal fallback); UA count-declined
+    // per grammatical case, mirroring the RU structure cell-for-cell.
+    .tmp.currency.printGoldSilverLang = function(gold, silver, gcase, lang) {
 	if (gold != 0 && silver != 0) {
 	    if (gcase == 4)
-		return .fmt("{1{Y%1$d{2 золот%1$Iую|ые|ых и {1{W%2$d{2 серебрян%2$Iую|ые|ых монет%2$Iу|ы|",
+		return .fmt(.tmp.system.lmsg(lang,
+			"{1{Y%1$d{2 gold and {1{W%2$d{2 silver",
+			"{1{Y%1$d{2 золот%1$Iую|ые|ых и {1{W%2$d{2 серебрян%2$Iую|ые|ых монет%2$Iу|ы|",
+			"{1{Y%1$d{2 золот%1$Iу|і|их і {1{W%2$d{2 срібн%2$Iу|і|их монет%2$Iу|и|"),
 			gold, silver);
 	    else if (gcase == 2)
-		return .fmt("{1{Y%1$d{2 золот%1$Iой|ых|ых и {1{W%2$d{2 серебрян%2$Iой|ых|ых монет%2$Iы||",
+		return .fmt(.tmp.system.lmsg(lang,
+			"{1{Y%1$d{2 gold and {1{W%2$d{2 silver",
+			"{1{Y%1$d{2 золот%1$Iой|ых|ых и {1{W%2$d{2 серебрян%2$Iой|ых|ых монет%2$Iы||",
+			"{1{Y%1$d{2 золот%1$Iої|их|их і {1{W%2$d{2 срібн%2$Iої|их|их монет%2$Iи||"),
 			gold, silver);
 	    else
-		return .fmt("{1{Y%1$d{2 золот%1$Iая|ые|ых и {1{W%2$d{2 серебрян%2$Iая|ые|ых монет%2$Iа|ы|",
+		return .fmt(.tmp.system.lmsg(lang,
+			"{1{Y%1$d{2 gold and {1{W%2$d{2 silver",
+			"{1{Y%1$d{2 золот%1$Iая|ые|ых и {1{W%2$d{2 серебрян%2$Iая|ые|ых монет%2$Iа|ы|",
+			"{1{Y%1$d{2 золот%1$Iа|і|их і {1{W%2$d{2 срібн%2$Iа|і|их монет%2$Iа|и|"),
 			gold, silver);
-		    
+
 	} else if (gold != 0 && silver == 0) {
 	    if (gcase == 4)
-		return .fmt("{1{Y%1$d{2 золот%1$Iую|ые|ых монет%1$Iу|ы|", gold);
+		return .fmt(.tmp.system.lmsg(lang,
+			"{1{Y%1$d{2 gold",
+			"{1{Y%1$d{2 золот%1$Iую|ые|ых монет%1$Iу|ы|",
+			"{1{Y%1$d{2 золот%1$Iу|і|их монет%1$Iу|и|"), gold);
 	    else if (gcase == 2)
-		return .fmt("{1{Y%1$d{2 золот%1$Iой|ых|ых монет%1$Iы||", gold);
+		return .fmt(.tmp.system.lmsg(lang,
+			"{1{Y%1$d{2 gold",
+			"{1{Y%1$d{2 золот%1$Iой|ых|ых монет%1$Iы||",
+			"{1{Y%1$d{2 золот%1$Iої|их|их монет%1$Iи||"), gold);
 	    else
-		return .fmt("{1{Y%1$d{2 золот%1$Iая|ые|ых монет%1$Iа|ы|", gold);
-	    
+		return .fmt(.tmp.system.lmsg(lang,
+			"{1{Y%1$d{2 gold",
+			"{1{Y%1$d{2 золот%1$Iая|ые|ых монет%1$Iа|ы|",
+			"{1{Y%1$d{2 золот%1$Iа|і|их монет%1$Iа|и|"), gold);
 
 	} else {
 	    if (gcase == 4)
-		return .fmt("{1{W%1$d{2 серебрян%1$Iую|ые|ых монет%1$Iу|ы|", silver);
+		return .fmt(.tmp.system.lmsg(lang,
+			"{1{W%1$d{2 silver",
+			"{1{W%1$d{2 серебрян%1$Iую|ые|ых монет%1$Iу|ы|",
+			"{1{W%1$d{2 срібн%1$Iу|і|их монет%1$Iу|и|"), silver);
 	    else if (gcase == 2)
-		return .fmt("{1{W%1$d{2 серебрян%1$Iой|ых|ых монет%1$Iы||", silver);
+		return .fmt(.tmp.system.lmsg(lang,
+			"{1{W%1$d{2 silver",
+			"{1{W%1$d{2 серебрян%1$Iой|ых|ых монет%1$Iы||",
+			"{1{W%1$d{2 срібн%1$Iої|их|их монет%1$Iи||"), silver);
 	    else
-		return .fmt("{1{W%1$d{2 серебрян%1$Iая|ые|ых монет%1$Iа|ы|", silver);
+		return .fmt(.tmp.system.lmsg(lang,
+			"{1{W%1$d{2 silver",
+			"{1{W%1$d{2 серебрян%1$Iая|ые|ых монет%1$Iа|ы|",
+			"{1{W%1$d{2 срібн%1$Iа|і|их монет%1$Iа|и|"), silver);
 
 	}
     };
