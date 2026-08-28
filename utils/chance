@@ -1,44 +1,52 @@
 .apply(function() {
-    
+
     // Core helper to calculate character's probability to do something
     // accounting for their race, religion, calendar bonuses, luck etc.
     // Use this for advanced probability calculations, e.g., skill success.
     .tmp.chance = function(base_chance, ch) {
 	var success; success = base_chance; // default
-	var msg; msg = ""; // special success/failure messages
+	// Flavour messages accumulated per language (trilingual leak fix, AXqNSTVz)
+	var msgRu, msgEn, msgUa; msgRu = ""; msgEn = ""; msgUa = "";
 
 	if (ch.race.name == "hobbit") {
-	    if (msg != "") msg = msg + "{/";
-	    msg = msg + "{1{GОх уж эти везучие хоббитцы!{2"; 
+	    if (msgRu != "") { msgRu = msgRu + "{/"; msgEn = msgEn + "{/"; msgUa = msgUa + "{/"; }
+	    msgRu = msgRu + "{1{GОх уж эти везучие хоббитцы!{2";
+	    msgEn = msgEn + "{1{GOh, those lucky hobbitses!{2";
+	    msgUa = msgUa + "{1{GОх ці везучі гобітоньки!{2";
 	    success = success + 2; // static +2% luck, pesky hobbitses
 	}
-	
+
 	// TO-DO: Bonuses should work for NPC thieves too
 	// TO-DO (RUFFINA): .Bonus("thief skills").active(ch) должен проверять
 	// на вора, но не проверяет, поэтому добавлен костыль проверки профы
-	if (!ch.is_npc() 
-	    && .Bonus("thief skills").active(ch) 
+	if (!ch.is_npc()
+	    && .Bonus("thief skills").active(ch)
 	    && ch.profession.name == "thief") {
 	    var bonus; bonus = .number_range(1, 10);
-	    if (bonus > 5) msg = msg + "{1{GПохоже, ворам сегодня фартит больше обычного.{/{2"; 
+	    if (bonus > 5) {
+		msgRu = msgRu + "{1{GПохоже, ворам сегодня фартит больше обычного.{/{2";
+		msgEn = msgEn + "{1{GLooks like thieves are in luck today.{/{2";
+		msgUa = msgUa + "{1{GСхоже, крадіям сьогодні фартить більше звичайного.{/{2";
+	    }
 	    success = success + bonus;
 	}
 	else return .chance(.urange(1, success, 99));
 
 	// Deity patron increases luck by 1%
-	if (.tmp.religion.hasMark(ch, false) && 
+	if (.tmp.religion.hasMark(ch, false) &&
 	    (ch.religion.patrons(ch) || ch.profession.name == "cleric")) {
 	    success = success + 1;
-	    msg = msg + .fmt("{1{CТы чувствуешь особое покровительство %N2!{2",
-		ch.religion.nameRus); 
+	    msgRu = msgRu + "{1{CТы чувствуешь особое покровительство " + ch.religion.nameRus.ruscase(2) + "!{2";
+	    msgEn = msgEn + "{1{CYou feel the special patronage of " + ch.religion.shortDescr + "!{2";
+	    msgUa = msgUa + "{1{CТи відчуваєш особливе заступництво " + ch.religion.nameUa.ruscase(2) + "!{2";
 	}
-	
+
 	// TO-DO: Add karma and global enchantments here
-	
+
 	success = .urange(1, success, 99); // there's always a chance!
-	
+
 	if (.chance(success)) {
-	    if (msg != "" && .chance(5)) ch.act(msg);
+	    if (msgRu != "" && .chance(5)) ch.act(.mm(msgEn, msgRu, msgUa));
 	    return true;
 	}
 	return false;
@@ -47,25 +55,27 @@
     // Chance for religion marks to trigger or religious miracles to occur
     .tmp.chanceMark = function(ch) {
 	var success, rel;
-	var msg; msg = ""; // special success/failure messages
-	
+	var msgRu, msgEn, msgUa; msgRu = ""; msgEn = ""; msgUa = ""; // trilingual flavour
+
 	if (!.tmp.religion.hasMark(ch, false)) return false;
 	else rel = ch.religion;
-	
+
 	if (rel.flags & .tables.religion_flags.cult) success = 7;
 	else success = 5; // basic chance for cults is higher
-	
+
 	if (rel.patrons(ch) || ch.profession.name == "cleric") {
 	    success = success + 1; // only one bonus at a time
-	    msg = msg + .fmt("{1{CТы чувствуешь особое покровительство %N2!{2", rel.nameRus); 
+	    msgRu = msgRu + "{1{CТы чувствуешь особое покровительство " + rel.nameRus.ruscase(2) + "!{2";
+	    msgEn = msgEn + "{1{CYou feel the special patronage of " + rel.shortDescr + "!{2";
+	    msgUa = msgUa + "{1{CТи відчуваєш особливе заступництво " + rel.nameUa.ruscase(2) + "!{2";
 	}
-	
+
 	// Raven Queen mark works more often during winter
 	if (rel.name == "raven queen" && .season == "winter")
 	    success = success * 2;
-	    
+
 	if (.chance(success)) {
-	    if (msg != "" && .chance(5)) ch.act(msg);
+	    if (msgRu != "" && .chance(5)) ch.act(.mm(msgEn, msgRu, msgUa));
 	    return true;
 	}
 	return false;
