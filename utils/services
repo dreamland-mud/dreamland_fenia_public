@@ -187,7 +187,9 @@
 		price_gold = .tmp.currency.adjustPrice(client, mob, s.price_gold);
 		prices.push_back(.fmt("{Y%d{x " + coin, price_gold));
 	    }
-	    if (s.price_qp < 0)
+	    if (s.name == "advice")
+		prices.push_back(.fmt("{C%d{x qp", 50));   // flat 50, billed in utils/services/actions settle(); price_qp stays 0 so doService never charges or adjusts advice
+	    else if (s.price_qp < 0)
 		prices.push_back(dealqp);
 	    else if (s.price_qp > 0) {
 		price_qp = .tmp.currency.adjustPrice(client, mob, s.price_qp);
