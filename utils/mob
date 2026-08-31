@@ -1158,7 +1158,7 @@
 	// line is the flavour that tells the victim why their gear is hissing.
 	if (items_affected > 0) {
 	    ch.act(._("{gЕдкая кислота шипит, разъедая все, чего коснулась.{x"));
-	    ch.recho(._("{gЕдкая кислота шипит на %1$P3 снаряжении.{x"), ch);
+	    ch.recho(._("{gЕдкая кислота шипит на %1$P2 снаряжении.{x"), ch);
 	}
     };
 
