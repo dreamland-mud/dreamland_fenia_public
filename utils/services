@@ -700,7 +700,7 @@
 	    }
 	    else sk.apply(mob, client, sk.level(mob) + 10);
 	    
-	    mob.mana = .min(0, mob.mana - sk.mana(mob));
+	    mob.mana = .max(0, mob.mana - sk.mana(mob));
 	    mob.wait = mob.wait + sk.beats(mob);
 	}
 	// If there's no spell, pick the service routine from the services array
