@@ -42,12 +42,21 @@
     // Otherwise makes them list services
     .tmp.mob.findServicers = function(client, argument) {
 	var servicers; servicers = .List();
-	for (mob in client.in_room.ppl.sub(client))
-	    if (.tmp.mob.isServicer(mob) && .tmp.mob.canServe(mob, client))
-		servicers.push_back(mob);
-	
+	var anyServicer; anyServicer = false;
+	for (mob in client.in_room.ppl.sub(client)) {
+	    if (.tmp.mob.isServicer(mob)) {
+		anyServicer = true;
+		if (.tmp.mob.canServe(mob, client))
+		    servicers.push_back(mob);
+	    }
+	}
+
 	if (servicers.size() <= 0) {
-	    client.act(._("Здесь нет никого, кто предоставляет платные услуги."));
+	    // Only "nobody here" when there truly is no servicer. If a servicer is
+	    // present but busy/unable, canServe already told the client why -- the
+	    // generic line would contradict it.
+	    if (!anyServicer)
+		client.act(._("Здесь нет никого, кто предоставляет платные услуги."));
 	    return null;
 	}
 	// When ch requests services w/o argument, all servicers will list services
