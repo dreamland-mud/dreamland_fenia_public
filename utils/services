@@ -349,7 +349,11 @@
 	    // Players can bring their own horseshoes: add up prices in this case
 	    if (service.name == "horseshoe") // Reducing price compared to old code
 		service.price_silver = service.price_silver + client.level*10*100;
-	    
+
+	    // Repair is 30% cheaper across the board (single item and repair-all).
+	    if (service.name == "repair")
+		service.price_silver = service.price_silver * 70 / 100;
+
 	    // Adjust prices in silver vs. race, clan etc.
 	    service.price_silver = .tmp.currency.adjustPrice(
 		client, mob, service.price_silver);
