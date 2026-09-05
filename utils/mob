@@ -12,6 +12,18 @@
 	return (ch != null && !ch.dead);
     };
 
+    // True if ch carries a REAL affect installed by skill 'name'. Unlike
+    // ch.isAffected(), which folds in the eqAffects cache (worn-item grants) and so
+    // reads true for any worn stealth item, this walks only the actual affect list --
+    // the check the stealth onRefresh guards need so item_stealth_refresh can install
+    // an affect that owns an item-granted bit.
+    .tmp.mob.hasOwnAffect = function(ch, name) {
+	for (aff in ch.affected)
+	    if (aff.type == name)
+		return true;
+	return false;
+    };
+
     // Is ch awake and capable of perceiving reality?
     .tmp.mob.awake = function(ch) {
 	return (.tmp.mob.valid(ch) &&
