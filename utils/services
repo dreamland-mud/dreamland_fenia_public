@@ -178,13 +178,20 @@
 	    "{Cqp price by arrangement{x", "{Cдоговорная цена в qp{x", "{Cдоговірна ціна в qp{x");
 
 	for (s in services) {
-	    var msg; msg = "";
+	    // The row IS the command the client types/clicks, so wrap verb+name in a
+	    // {hc link (sent verbatim on click, resolved in the reader's own language)
+	    // and pad the assembled string with %-Ns -- the formatter counts visible
+	    // width and skips the {hc/{x tags (mirrors utils/player/train-teach).
+	    var sname;
 	    if (lang == 0)
-		msg = .fmt("   {y" + word + " %-18s{x", s.name);
+		sname = s.name;
 	    else if (lang == 2)
-		msg = .fmt("   {y" + word + " %-18N1{x", s.nameUkr);
+		sname = .fmt("%1$N1", s.nameUkr);
 	    else
-		msg = .fmt("   {y" + word + " %-18N1{x", s.nameRus);
+		sname = .fmt("%1$N1", s.nameRus);
+
+	    var cmdtext; cmdtext = .fmt("{y{hc%1$s %2$s{x", word, sname);
+	    var msg; msg = .fmt("   %-25s", cmdtext);
 
 	    var price_gold, price_qp;
 	    var prices; prices = .List();
