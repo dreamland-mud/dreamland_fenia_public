@@ -140,9 +140,11 @@
 		.tmp.room.dropWhere(room), product);
 	}
 	else {
-	    // Parallel lists: base vnum (hardness tier), material name, Russian adjective, weight.
-	    // Empty adj means keep stock short_descr. Softwoods (28037) common, hardwoods (28038) rare.
-	    var vnums, materials, adjs, weights;
+	    // Parallel lists: base vnum (hardness tier), material name, RU/UA adjective, weight.
+	    // Empty adj means keep the prototype's (trilingual) short_descr. EN uses the
+	    // material name attributively (materials.at(idx) + " log"). Softwoods (28037)
+	    // common, hardwoods (28038) rare.
+	    var vnums, materials, adjs, adjsUa, weights;
 	    vnums     = .List().add(28037, 28037, 28037, 28037, 28037,  28038, 28038, 28038, 28038);
 	    materials = .List().add("aspen", "yew", "redwood", "bamboo", "softwood",
 				    "oak", "ashwood", "hardwood", "ebony");
@@ -155,6 +157,15 @@
 				    "ясенев|ое|ого|ому|ое|ым|ом",
 				    "", // hardwood: keep stock "бревно из твердого дерева"
 				    "эбенов|ое|ого|ому|ое|ым|ом");
+	    adjsUa    = .List().add("осиков|е|ого|ому|е|им|ому",
+				    "тисов|е|ого|ому|е|им|ому",
+				    "", // redwood: genitive phrase below
+				    "бамбуков|е|ого|ому|е|им|ому",
+				    "", // softwood: keep stock
+				    "дубов|е|ого|ому|е|им|ому",
+				    "ясенев|е|ого|ому|е|им|ому",
+				    "", // hardwood: keep stock
+				    "ебенов|е|ого|ому|е|им|ому");
 	    weights   = .List().add(25, 18, 15, 12, 10,  10, 6, 3, 1); // total 100
 
 	    // Weighted random pick
@@ -171,19 +182,25 @@
 	    product = .get_obj_index(vnums.at(idx)).create();
 	    product.material = .Material(materials.at(idx));
 
-	    // Rename based on picked material
+	    // Rename based on picked material. Fill all three language slots: the plain
+	    // short_descr = setter writes only RU, which left EN/UA on the prototype's
+	    // generic "log". EN uses the material name attributively.
 	    var adj; adj = adjs.at(idx);
 	    if (materials.at(idx) == "redwood") {
-		product.short_descr = "бревн|о|а|у|о|ом|е из красного дерева";
-		product.keyword = "log redwood бревно красное дерево";
+		product.setShort("redwood log", 0);
+		product.setShort("бревн|о|а|у|о|ом|е из красного дерева", 1);
+		product.setShort("полін|о|а|у|о|ом|і з червоного дерева", 2);
+		product.keyword = "log redwood бревно поліно красное дерево червоне";
 	    }
 	    else if (adj != "") {
 		var parts; parts = adj.split("|");
-		product.short_descr = adj + " бревн|о|а|у|о|ом|е";
-		product.keyword = "log " + materials.at(idx) + " бревно "
+		product.setShort(materials.at(idx) + " log", 0);
+		product.setShort(adj + " бревн|о|а|у|о|ом|е", 1);
+		product.setShort(adjsUa.at(idx) + " полін|о|а|у|о|ом|і", 2);
+		product.keyword = "log " + materials.at(idx) + " бревно поліно "
 		    + parts.at(0) + " " + parts.at(0) + parts.at(1);
 	    }
-	    // Softwood/hardwood generic: keep stock short_descr & keyword.
+	    // Softwood/hardwood generic: keep stock short_descr & keyword (trilingual proto).
 
 	    room.echo(._("Дерево с грохотом падает %1$s, превращаясь в %2$O4!"),
 		.tmp.room.dropWhere(room), product);
