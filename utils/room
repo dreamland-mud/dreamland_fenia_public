@@ -247,7 +247,10 @@
 
 	if (stats.forest_total <= 0) {
 	    for (vch in room.ppl) // nowhere left to hide
-		if (vch.isAffected("camouflage")) vch.visible();
+		// Raw bit, not isAffected: a worn camo item folds camouflage into
+		// eqAffects, so isAffected would strip the unrelated stealth of any
+		// poncho wearer whose camo bit is already off.
+		if (vch.affected_by & .tables.affect_flags.camouflage) vch.visible();
 
 	    af.location  = .tables.apply_flags.sector_type;
 	    af.modifier  = .tables.sector_table.field;
