@@ -117,10 +117,14 @@
 
     // Can a ch greet vict: do the see them come and react?
     .tmp.mob.canGreet = function(ch, vict) {
-	return (.tmp.mob.valid(vict) && .tmp.mob.awake(ch) &&
+	// vict must be awake too: greeting a target that cannot perceive it
+	// (asleep, stunned, incapacitated) just leaks room chatter to someone
+	// with their eyes shut -- the old isDeaf TO-DO below. Resting still
+	// hears; awake() floors at POS_REST.
+	return (.tmp.mob.valid(vict) && .tmp.mob.awake(ch) && .tmp.mob.awake(vict) &&
 		!.tmp.mob.isBlind(ch) && ch.can_see_mob(vict) &&
 		!(ch.detection & .tables.detect_flags.fear));
-    };	
+    };
     
     // Determine whether a creature is capable of producing any sounds
     // Magical and sentient creatures can make sounds
