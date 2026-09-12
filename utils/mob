@@ -332,8 +332,10 @@
 	    (ch.evil && obj.extra_flags & .tables.extra_flags.anti_evil))
 	    msg = msg + ch.print(._("Твоя натура не позволяет тебе использовать %1$O4."), obj);
 	
-	// Can't wear due to level    
-	if (obj.level > ch.level + ch.profession.wearModifier(obj.item_type))
+	// Can't wear due to level. Mirror the engine's get_wear_level (skill_utils.cpp):
+	// it wears against getModifyLevel(), so remort bonus levels count. ch.level is
+	// the REAL level, which wrongly denied remort chars items within their reach.
+	if (obj.level > ch.modifyLevel + ch.profession.wearModifier(obj.item_type))
 	    msg = msg + ch.print(._("Тебе не хватает опыта, чтобы использовать %1$O4."), obj);
 	
 	// Can't wear limit -- too experienced
