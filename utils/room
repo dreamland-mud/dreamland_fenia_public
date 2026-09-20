@@ -27,6 +27,11 @@
     .tmp.room.burn = function(room, level, duration) {
 	if (room == null || !.tmp.room.canBurn(room)) return;
 	if (room.isAffected("heat")) return;
+	// No lingering room blaze in clan halls. This is the ONE place the "heat"
+	// affect is created, so guarding it here stops griefing bonfires, neighbour
+	// spread and firestorm from setting a clan hall alight -- while leaving
+	// firestorm castable (canBurn stays true) so it still does its instant AoE.
+	if (room.clan.name != "none") return;
 	
 	if (!room.isOutside())
 	    room.echo(._("{RВ замкнутом пространстве вокруг тебя начинается пожар! Беги!{x"));
