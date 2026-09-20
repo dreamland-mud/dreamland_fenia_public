@@ -80,7 +80,15 @@
 	if (!.tmp.mob.valid(client)) return false; // sanity check
 	
 	if (!.tmp.mob.canActAmbient(mob)) {
-	    client.act(._("Кажется, %1$C3 сейчас не до услуг, %1$P1 не смо%1$nжет|гут тебе помочь."), mob);
+	    // Split the refusal by cause. canActAmbient lumps three states together;
+	    // showing the same "can't help you" line for a mob that is merely in a
+	    // short waitstate is what made an idle healer read as a permanent refusal.
+	    if (mob.fighting != null)
+		client.act(._("%1$^C1 сейчас в бою, тут не до услуг. Загляни, когда все закончится."), mob);
+	    else if (mob.wait > 0)
+		client.act(._("%1$^C3 сейчас недосуг. Обратись снова через пару мгновений."), mob);
+	    else
+		client.act(._("Кажется, %1$C3 сейчас не до услуг, %1$P1 не смо%1$nжет|гут тебе помочь."), mob);
 	    return false;
 	}
 	
