@@ -55,14 +55,15 @@
 	if (time >= 1440) {
 	    days = (time / 60) / 24;
 	    msg = msg + .tmp.time.unitL(days, lang, "day", "д%1$Iень|ня|ней", "д%1$Iень|ні|нів");
-	    // calculating remaining hours
+	    // calculating remaining hours; a whole number of days prints alone
 	    hours = (time - days * 24 * 60) / 60;
-	    msg = msg + ", " + .tmp.time.unitL(hours, lang, "hour", "час%1$I|а|ов", "годин%1$Iу|и|");
-	    // calculating remaining minutes
 	    if (hours > 0) {
+		msg = msg + ", " + .tmp.time.unitL(hours, lang, "hour", "час%1$I|а|ов", "годин%1$Iу|и|");
+		// calculating remaining minutes
 		minutes = time - days * 24 * 60 - hours * 60;
-		msg = msg + .tmp.system.lmsg(lang, " and ", " и ", " і ")
-			  + .tmp.time.unitL(minutes, lang, "minute", "мину%1$Iту|ты|т", "хвилин%1$Iу|и|");
+		if (minutes > 0)
+		    msg = msg + .tmp.system.lmsg(lang, " and ", " и ", " і ")
+			      + .tmp.time.unitL(minutes, lang, "minute", "мину%1$Iту|ты|т", "хвилин%1$Iу|и|");
 	    }
 	}
 	else if (time >= 60) {
