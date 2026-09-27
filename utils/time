@@ -80,6 +80,103 @@
 	return msg;
     };
 
+    // Days since 1970-01-01 for a proleptic Gregorian date (H. Hinnant's algorithm).
+    .tmp.time.daysFromCivil = function(y, m, d) {
+	var yy, mp, era, yoe, doy, doe;
+	if (m <= 2) {
+	    yy = y - 1;
+	    mp = m + 9;
+	} else {
+	    yy = y;
+	    mp = m - 3;
+	}
+	era = yy / 400;
+	yoe = yy - era * 400;
+	doy = (153 * mp + 2) / 5 + d - 1;
+	doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+	return era * 146097 + doe - 719468;
+    };
+
+    // Day number of the last Sunday of a 31-day month. 1970-01-01 was a Thursday,
+    // so (day + 4) % 7 is the weekday with 0 = Sunday.
+    .tmp.time.lastSunday = function(y, m) {
+	var z; z = .tmp.time.daysFromCivil(y, m, 31);
+	return z - (z + 4) % 7;
+    };
+
+    // Kyiv wall-clock offset in seconds at UTC instant t: EET +2, EEST +3 between
+    // the EU switches (last Sunday of March and October, 01:00 UTC). Kyiv, not the
+    // server's Berlin, because "yesterday" should match the players' midnight.
+    // The year estimate can be off by one around New Year, which is never DST.
+    .tmp.time.kyivOffset = function(t) {
+	var y, start, end;
+	y = 1970 + t / 31556952;
+	start = .tmp.time.lastSunday(y, 3) * 86400 + 3600;
+	end = .tmp.time.lastSunday(y, 10) * 86400 + 3600;
+	if (t >= start && t < end)
+	    return 10800;
+	return 7200;
+    };
+
+    // Kyiv calendar day number of UTC instant t.
+    .tmp.time.kyivDay = function(t) {
+	return (t + .tmp.time.kyivOffset(t)) / 86400;
+    };
+
+    // "<count> <unit> ago" in `lang`.
+    .tmp.time.agoUnitL = function(count, lang, en, ru, ua) {
+	return .tmp.time.unitL(count, lang, en, ru, ua)
+	     + .tmp.system.lmsg(lang, " ago", " назад", " тому");
+    };
+
+    .tmp.time.weekdayOnL = function(dow, lang) {
+	if (dow == 0) return .tmp.system.lmsg(lang, "on Sunday", "в воскресенье", "у неділю");
+	if (dow == 1) return .tmp.system.lmsg(lang, "on Monday", "в понедельник", "у понеділок");
+	if (dow == 2) return .tmp.system.lmsg(lang, "on Tuesday", "во вторник", "у вівторок");
+	if (dow == 3) return .tmp.system.lmsg(lang, "on Wednesday", "в среду", "у середу");
+	if (dow == 4) return .tmp.system.lmsg(lang, "on Thursday", "в четверг", "у четвер");
+	if (dow == 5) return .tmp.system.lmsg(lang, "on Friday", "в пятницу", "у пʼятницю");
+	return .tmp.system.lmsg(lang, "on Saturday", "в субботу", "у суботу");
+    };
+
+    // Human "when" for a past UTC instant `then`, the way a person says it:
+    // "just now", "5 minutes ago", "yesterday", "on Wednesday", "last week",
+    // "3 months ago". Calendar words follow Kyiv time.
+    .tmp.time.agoL = function(then, lang) {
+	var d, days, today;
+	d = .current_time - then;
+	if (d < 120)
+	    return .tmp.system.lmsg(lang, "just now", "только что", "щойно");
+	if (d < 3600)
+	    return .tmp.time.agoUnitL(d / 60, lang, "minute", "мину%1$Iту|ты|т", "хвилин%1$Iу|и|");
+
+	today = .tmp.time.kyivDay(.current_time);
+	days = today - .tmp.time.kyivDay(then);
+	if (d < 21600 || days == 0) {
+	    if (d < 7200)
+		return .tmp.system.lmsg(lang, "an hour ago", "час назад", "годину тому");
+	    return .tmp.time.agoUnitL(d / 3600, lang, "hour", "час%1$I|а|ов", "годин%1$Iу|и|");
+	}
+	if (days == 1)
+	    return .tmp.system.lmsg(lang, "yesterday", "вчера", "вчора");
+	if (days == 2)
+	    return .tmp.system.lmsg(lang, "the day before yesterday", "позавчера", "позавчора");
+	if (days < 7)
+	    return .tmp.time.weekdayOnL((today - days + 4) % 7, lang);
+	if (days < 14)
+	    return .tmp.system.lmsg(lang, "last week", "на прошлой неделе", "минулого тижня");
+	if (days < 30)
+	    return .tmp.time.agoUnitL(days / 7, lang, "week", "недел%1$Iю|и|ь", "тиж%1$Iдень|ні|нів");
+	// Months and years round to the nearest unit, so 50 days reads "2 months".
+	if (days < 45)
+	    return .tmp.system.lmsg(lang, "a month ago", "месяц назад", "місяць тому");
+	if (days < 335)
+	    return .tmp.time.agoUnitL((days + 15) / 30, lang, "month", "месяц%1$I|а|ев", "місяц%1$Iь|і|ів");
+	if (days < 548)
+	    return .tmp.system.lmsg(lang, "a year ago", "год назад", "рік тому");
+	return .tmp.time.agoUnitL((days + 182) / 365, lang, "year", "%1$Iгод|года|лет", "р%1$Iік|оки|оків");
+    };
+
     //This one converts seconds into pulses -- for beats/waits/dazes.
     .tmp.time.seconds = function(duration) {
 	return duration * 4;		
