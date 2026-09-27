@@ -112,12 +112,12 @@
     };
 
     // True for a non-NPC who senses a trap in time to deal with it. Detection is
-    // now a permanent 'detect trap' affect (perception grants it via the engine,
-    // the hunter clan spell grants it directly), so this is a plain affect check.
+    // now a permanent 'detect trap' affect (perception grants it via the
+    // engine), so this is a plain affect check.
     .tmp.trap.detects = function(ch, train) {
 	// Trap detection is a permanent affect now. Perception (a passive skill)
 	// grants 'detect trap' to any learned holder via the C++ passive_refresh
-	// reconciler, and the hunter clan spell grants it directly. Holding the
+	// reconciler. Holding the
 	// affect = you always spot and step around the trap: no roll, no training.
 	// The 'train' argument is kept for call-site compatibility, unused.
 	if (ch.is_npc())
@@ -182,7 +182,7 @@
 	ch.trap = .tables.trap_flags.values(trap.flags);
     };
 
-    // Category of hazard a hunter's 'detect trap' sense would prickle at in the
+    // Category of hazard a 'detect trap' sense would prickle at in the
     // room, or "" for none. "air" = an open-sky tile that drops a wingless
     // walker from the heavens (the .tmp.trap mechanic on an air sector -- you
     // can't slip, there's no ground, you just fall); "fall" = a solid-ground
