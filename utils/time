@@ -167,13 +167,14 @@
 	    return .tmp.system.lmsg(lang, "last week", "на прошлой неделе", "минулого тижня");
 	if (days < 30)
 	    return .tmp.time.agoUnitL(days / 7, lang, "week", "недел%1$Iю|и|ь", "тиж%1$Iдень|ні|нів");
-	if (days < 60)
+	// Months and years round to the nearest unit, so 50 days reads "2 months".
+	if (days < 45)
 	    return .tmp.system.lmsg(lang, "a month ago", "месяц назад", "місяць тому");
 	if (days < 335)
-	    return .tmp.time.agoUnitL(days / 30, lang, "month", "месяц%1$I|а|ев", "місяц%1$Iь|і|ів");
-	if (days < 730)
+	    return .tmp.time.agoUnitL((days + 15) / 30, lang, "month", "месяц%1$I|а|ев", "місяц%1$Iь|і|ів");
+	if (days < 548)
 	    return .tmp.system.lmsg(lang, "a year ago", "год назад", "рік тому");
-	return .tmp.time.agoUnitL(days / 365, lang, "year", "%1$Iгод|года|лет", "р%1$Iік|оки|оків");
+	return .tmp.time.agoUnitL((days + 182) / 365, lang, "year", "%1$Iгод|года|лет", "р%1$Iік|оки|оків");
     };
 
     //This one converts seconds into pulses -- for beats/waits/dazes.
