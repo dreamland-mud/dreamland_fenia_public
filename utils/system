@@ -36,6 +36,10 @@
      * schedules extraction to occur in the next tick
      */
     trueExtract = function(obj_or_mob) {
+	// Extraction is deferred (C++ callers may still hold the pointer), so mark
+	// it doomed now: .tmp.corpse.position destroys it instead of looting it.
+	if (obj_or_mob != null && obj_or_mob.online && !obj_or_mob.dead)
+	    obj_or_mob.extractPending = true;
 	.scheduler.Thread(
 		function(objmob) {
 			if (objmob.online && !objmob.dead)
