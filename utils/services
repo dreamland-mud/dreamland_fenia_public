@@ -414,10 +414,14 @@
 	// NPCs are eligible only for healer services
 	if (client.is_npc() && !service.npc_ok)
 	    msg = msg + viewer.print(._("Эта услуга доступна только для игроков."));
+	var rager; rager = (!viewer.is_npc() && !viewer.is_immortal() && viewer.getClan() == "BATTLERAGER");
 	if (service.name == "locate") {
-	    if (client.getClan() == "BATTLERAGER" ||
-		(client.is_npc() && client.master != null && client.master.getClan() == "BATTLERAGER"))
+	    if (rager)
 		msg = msg + viewer.print(._("Я опасаюсь прогневать воинов Клана Ярости своими заклинаниями."));
+	}
+	// The oath of rage forbids healers' magic on the warrior and his pets.
+	else if (rager && service.spell != null && service.spell != "" && service.target == "char") {
+	    msg = msg + viewer.print(._("Твоя клятва ярости запрещает принимать мое лечение."));
 	}
 	else if (service.name == "horseshoe") {
 	    if (!client.hasWearloc("hooves"))
