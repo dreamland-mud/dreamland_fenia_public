@@ -712,8 +712,9 @@
 		mob.trigger("Heal", client, service.name);
 	    }
 	    // TO-DO: Refactor with new spell group messages
+	    // The spell name resolves per viewer: sk.name alone is the EN key.
 	    else mob.recho(._("%1$^C1 бормоч%1$nет|ут '%2$s'."), 
-		mob, sk.name);
+		mob, .mm(sk.nameFor(0), sk.nameFor(1), sk.nameFor(2)));
 	    
 	    // TO-DO (RUFFINA): add object targets to ch.spell
 	    if (service.target == "object" && service.object != null) {
