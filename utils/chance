@@ -30,15 +30,14 @@
 	    }
 	    success = success + bonus;
 	}
-	else return .chance(.urange(1, success, 99));
 
 	// Deity patron increases luck by 1%
 	if (.tmp.religion.hasMark(ch, false) &&
 	    (ch.religion.patrons(ch) || ch.profession.name == "cleric")) {
 	    success = success + 1;
-	    msgRu = msgRu + "{1{CТы чувствуешь особое покровительство " + ch.religion.nameRus.ruscase(2) + "!{2";
-	    msgEn = msgEn + "{1{CYou feel the special patronage of " + ch.religion.shortDescr + "!{2";
-	    msgUa = msgUa + "{1{CТи відчуваєш особливе заступництво " + ch.religion.nameUa.ruscase(2) + "!{2";
+	    msgRu = msgRu + "{1{CТы чувствуешь особое покровительство " + ch.religion.nameRus.ruscase(2) + " -- удача на твоей стороне!{2";
+	    msgEn = msgEn + "{1{CYou feel the special patronage of " + ch.religion.shortDescr + " -- luck is on your side!{2";
+	    msgUa = msgUa + "{1{CТи відчуваєш особливе заступництво " + ch.religion.nameUa.ruscase(2) + " -- удача на твоєму боці!{2";
 	}
 
 	// TO-DO: Add karma and global enchantments here
@@ -46,7 +45,8 @@
 	success = .urange(1, success, 99); // there's always a chance!
 
 	if (.chance(success)) {
-	    if (msgRu != "" && .chance(5)) ch.act(.mm(msgEn, msgRu, msgUa));
+	    // Flavour only out of combat: dodge/parry roll through here every round.
+	    if (msgRu != "" && ch.fighting == null && .chance(5)) ch.act(.mm(msgEn, msgRu, msgUa));
 	    return true;
 	}
 	return false;
