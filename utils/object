@@ -300,11 +300,13 @@
 	var liq;
 	try {liq = .Liquid(liquid);} catch (e);
 	if (liq == null) return;
+	// short_descr is RU only, .mm resolves the liquid name per viewer language.
+	var liqName; liqName = .mm(liq.getShort(0), liq.getShort(1), liq.getShort(2));
 
 	// TO-DO (RUFFINA): Temporarily change room liquid instead
 	if (room.isWater()) {
-	    room.echo(._("%^s постепенно перемешивается с %s в этой местности и исчезает."),
-		liq.short_descr.ruscase(1), room.liquid.short_descr.ruscase(5));
+	    room.echo(._("%1$^N1 постепенно перемешивается с %2$N5 в этой местности и исчезает."),
+		liqName, .mm(room.liquid.getShort(0), room.liquid.getShort(1), room.liquid.getShort(2)));
 	    return;
 	}
 
@@ -326,7 +328,7 @@
 	    
 	    // Not alcohol? Let's try to extinguish the fire
 	    if (fire.fire_time > 1 && amount / 10 < fire.fire_time) {
-		room.echo(._("%1$^N1 немного притушивает %2$O4."), liq.short_descr, fire);
+		room.echo(._("%1$^N1 немного притушивает %2$O4."), liqName, fire);
 		fire.fire_time = fire.fire_time - 1;
 	    }
 	    else .tmp.object.extinguish(fire, false); // no ashes
@@ -351,9 +353,9 @@
 	    
 	    // Not alcohol? Let's try to extinguish the fire
 	    if (aff == null || .tmp.room.savesDispel(aff, amount, null))
-		room.echo(._("%1$^N1 шипит и испаряется в бушующем вокруг пламени."), liq.short_descr);
+		room.echo(._("%1$^N1 шипит и испаряется в бушующем вокруг пламени."), liqName);
 	    else if (aff.duration > .max(1, amount / 100)) {
-		room.echo(._("%1$^N1 немного притушивает бушующее в этой местности пламя."));
+		room.echo(._("%1$^N1 немного притушивает бушующее в этой местности пламя."), liqName);
 		aff.duration = .max(1, aff.duration - 1);
 		room.affectReplace(aff);
 	    }
@@ -368,8 +370,8 @@
 	
 	// TO-DO (RUFFINA): Temporarily change room liquid instead
 	if (room.isWater()) {
-	    room.echo(._("Капли дождя разводят круги на %s."),
-		room.liquid.short_descr.ruscase(6));
+	    room.echo(._("Капли дождя разводят круги на %1$N6."),
+		.mm(room.liquid.getShort(0), room.liquid.getShort(1), room.liquid.getShort(2)));
 	    return;
 	}
 	
