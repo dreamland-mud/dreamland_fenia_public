@@ -752,6 +752,14 @@
 	if (emod <= -100) return; // underwater: nothing to burn, nothing to blind
 	fire_power = .urange(1, fire_power + emod, 10);
 	var to_save; to_save = .urange(1, 100 - fire_power * 10, 99);
+	// Power 2 is a flaming blade, arrow or throwing weapon: it lands several
+	// times a round, so per-hit odds that suit a spell make it far too strong.
+	// It heats gear half as often, blinds on one proc in ten and only until
+	// the next tick. A tick is 20 rounds, longer than most fights, so the
+	// proc chance is the lever that matters, not the blind duration.
+	var weapon_contact; weapon_contact = (source_power <= 2);
+	if (weapon_contact)
+	    to_save = .urange(1, 100 - fire_power * 5, 99);
 	var items_affected; items_affected = 0; // capped by fire_power
 
 	// Burn/heat gear first -- so that ch could see it
@@ -822,6 +830,9 @@
 	    || !(ch.parts & .tables.part_flags.eye) 
 	    || (ch.parts & .tables.part_flags.eyestalks))
 	    return; // can't blind if eyestalks, no eyes, or already blind
+
+	if (weapon_contact && .tmp.chance(90, ch))
+	    return; // the victim's luck helps it keep its sight
 	    
 	if (!ch.saves_spell(ch, fire_power * 10, "fire")) {
 	    ch.act(._("{WТвои глаза слезятся от раскаленного воздуха. Ты ничего не видишь!{x"));
@@ -829,7 +840,10 @@
 	    var af; af = .Affect();
 	    af.type             = "heat";
 	    af.level            = fire_power * 10 + 1;
-	    af.duration         = fire_power/2 + 1;
+	    if (weapon_contact)
+		af.duration     = 0; // gone at the next tick
+	    else
+		af.duration     = fire_power/2 + 1;
 	    af.bitvector("affect_flags", "blind");		
 	    af.location         = .tables.apply_flags.hitroll;
 	    af.modifier         = -1 * .max(4, fire_power + 1);
