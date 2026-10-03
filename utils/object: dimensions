@@ -306,12 +306,6 @@
 		    size.thickness = 300;
 		    size.quantity  = 1;               
 	}
-	else if (obj.item_type == .tables.item_table.npc_corpse) {
-		    size.length    = 2000; 
-		    size.width     = 1500;
-		    size.thickness = 300;
-		    size.quantity  = 1;               
-	}
 	else if (obj.item_type == .tables.item_table.fountain) {
 		    size.length    = 10 * .max(1, .max(obj.value0, obj.value1)); 
 		    size.width     = 10 * .max(1, .max(obj.value0, obj.value1));

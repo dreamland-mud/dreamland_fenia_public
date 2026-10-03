@@ -2,55 +2,112 @@
     if (.tmp.weight == null) .tmp.weight = .Map();
     if (.tmp.object == null) .tmp.object = .Map();
     
+    // Skin a worn armor/clothing piece covers at full coverage, in cm2. 0 = not a
+    // body-shell piece: the item keeps the solid-block size from dimensions().
+    .tmp.weight.shellArea = function(obj) {
+	var W; W = .tables.wear_flags;
+	if (obj.item_type != .tables.item_table.armor && obj.item_type != .tables.item_table.clothing)
+	    return 0;
+	if (obj.wear_flags & W.wear_body) return 7800;   // 65 x 120 cm torso
+	if (obj.wear_flags & W.wear_head) return 1300;
+	if (obj.wear_flags & W.wear_arms) return 3600;
+	if (obj.wear_flags & W.wear_hands) return 1400;
+	if (obj.wear_flags & W.wear_legs) return 3800;
+	if (obj.wear_flags & W.wear_feet) return 2100;
+	if (obj.wear_flags & W.wear_shield) return 6000;
+	if (obj.wear_flags & W.wear_about) return 13600; // 68 x 200 cm cloak
+	if (obj.wear_flags & W.wear_face) return 270;
+	if (obj.wear_flags & W.wear_waist) return 400;
+	if (obj.wear_flags & W.wear_wrist) return 100;
+	return 0;
+    };
+
+    // Shell thickness by material type, in tenths of a millimetre.
+    .tmp.weight.shellThickness = function(config) {
+	var t; t = config.type;
+	if (t.contains("cloth")) return 20;
+	if (t.contains("leather")) return 30;
+	if (t.contains("wood")) return 100;
+	if (t.contains("metal")) return 15;
+	if (t.contains("mineral")) return 50;
+	return 20;
+    };
+
+    // Share of the shell a piece covers, in percent. Cloth always wraps the whole
+    // of it; plate, mail and leather go by heft: heavy covers everything, medium
+    // most, light leaves gaps. heft = the argument, else the item's "heft"
+    // property, else medium. A "coverage" property (a circlet, a buckler) wins.
+    .tmp.weight.coverage = function(obj, heft, config) {
+	var c;
+	if (config.type.contains("cloth"))
+	    return 100;
+	c = .tmp.system.toNumber(obj.property("coverage", 0));
+	if (c != null && c > 0)
+	    return .min(c, 100);
+	if (heft == null || heft == "")
+	    heft = obj.property("heft", "medium");
+	if (heft == "heavy")
+	    return 100;
+	if (heft == "light")
+	    return 40;
+	return 65;
+    };
+
+    // Weight in 1/10 of a pound, heft from the item's own "heft" property.
     .tmp.weight.calculateWeight = function(obj) {
+	return .tmp.weight.calculateWeightAs(obj, "");
+    };
+
+    // Weight in 1/10 of a pound for heft light|medium|heavy ("" = the item's own).
+    // Worn armor and clothing: shell area x coverage x material thickness;
+    // everything else: the solid block from dimensions(). Several materials split
+    // the piece 2^(n-1) : ... : 2 : 1, the first one main. Rational math
+    // (.add/.mult/.div) all the way: Fenia ints are 32-bit, and int + rational
+    // truncates the fraction.
+    .tmp.weight.calculateWeightAs = function(obj, heft) {
 	if (!.tmp.object.valid(obj)) return 0;
 	if (obj.item_type == .tables.item_table.money)
 	    return .tmp.weight.silver(obj.value0) + .tmp.weight.gold(obj.value1);
-	
-	var size; size = .tmp.object.dimensions(obj);
-	
-	var volume; // calculate volume in cubic millimeters
-	volume = size.length * size.width * size.thickness * size.quantity;
-	volume = .max(1, volume / 1000); // volume in cubic centimeters
 
-	var weight; weight = 0; // calculate weight in grams
-	// volume / 1000 = volume in cm3, rho / 1000 = density in g/cm3
-	//weight = .max(1, (volume * obj.material.rho) / 1000);
+	var area, volume, size, materials, n, den, share, m, config, part, grams, weight;
+	area = .tmp.weight.shellArea(obj);
+	volume = 0;
+	if (area == 0) {
+	    size = .tmp.object.dimensions(obj);
+	    // mm3 -> cm3
+	    volume = .div(.mult(.mult(size.length, size.width), .mult(size.thickness, size.quantity)), 1000);
+	}
 
-	var materials; materials = obj.material.name.split(", ");
-	var total; total = materials.size();
-	var sum; sum = 0;
-	var k; k = 1;
-	
-	for (; k <= total; k = k + 1)
-	    sum = sum + .div(1, .power(2, k - 1));
-	
-	var i; i = 1;
+	materials = obj.material.name.split(", ");
+	n = materials.size();
+	den = 1;
+	for (share = 0; share < n; share = share + 1)
+	    den = den * 2;
+	share = den;
+	den = den - 1;
 
+	grams = 0;
 	for (m in materials) {
-	    var config; config = .tmp.object.getMaterialConfig(m);
+	    share = share / 2;
+	    config = .tmp.object.getMaterialConfig(m);
 	    if (config == null) {
 		.discord_wiznet(.fmt(":name_badge: [MATERIAL] %O1 [%d]: material '%s' returned null config",
 		    obj, obj.vnum, m));
 		return 1;
 	    }
-	    var rho; rho = .tmp.object.getMaterialConfig(m).rho;
-	    var fraction;
-	    fraction = .div(1, .power(2, i - 1));
-	    fraction = .div(fraction, sum);
-	    var volume_part; volume_part = .mult(volume, fraction);
-	    var prho; prho = .mult(volume_part, rho);
-	    // TO-DO (RUFFINA): :))))) look what you're making me do
-	    if (prho < 0) prho = 2147000000; 
-	    
-	    var mass; mass = .div(prho, 1000);
-
-	    weight = weight + mass;
-	    i = i + 1;
+	    part = volume;
+	    if (area > 0)
+		part = .div(.mult(.mult(area, .tmp.weight.coverage(obj, heft, config)),
+				  .tmp.weight.shellThickness(config)), 10000);
+	    // cm3 x kg/m3 / 1000 = grams, times this material's share
+	    grams = .add(grams, .div(.mult(.mult(part, config.rho), share), den * 1000));
 	}
 
-	// Now convert into MUD "units" -- 1/10 of pound currently
-	weight = .max(1, (weight * 10) / 454); // weight in 1/10 of a pound
+	// 1/10 of a pound = 45.4 g
+	weight = .tmp.system.toNumber(.div(grams, "45.4"));
+	if (weight == null || weight < 0)
+	    weight = 1000000;
+	weight = .urange(1, weight, 1000000);
 
 	// Significantly lighten certain item types
 	if (obj.item_type == .tables.item_table.weapon) {
