@@ -83,7 +83,8 @@
 	}
 	// Small: 7-40 kg <-- 14-80 pounds -- rodents/birds/kenders/faeries
 	else if (ch.size == 1) {
-	    if (ch.form &.tables.form_flags.bird
+	    // Hollow-boned flyers: bird bodies and anything winged.
+	    if (ch.form & (.tables.form_flags.bird | .tables.form_flags.winged)
 		|| ch.form &.tables.form_flags.snake
 		|| ch.form &.tables.form_flags.fish)
 		weight = .number_range(20, 100);
@@ -172,46 +173,57 @@
 	return false;
     };
     
+    // Undead = act undead (zombies, ghouls, ghosts, liches) or a vampire PC.
+    // The skeletal form is a body shape, not undeath, and implies the act.
     .tmp.mob.isUndead = function(ch) {
-	return ( (ch.is_npc() && (ch.act  & .tables.act_flags.undead || 
-				  ch.form & .tables.form_flags.undead)) ||
+	return ( (ch.is_npc() && (ch.act & .tables.act_flags.undead)) ||
 		 (!ch.is_npc() && (ch.act & .tables.plr_flags.vampire)) );
     };
-    
+
+    // Golems, modrons, plants: every animated object has the construct form.
     .tmp.mob.isObject = function(ch) {
-	if (ch.is_npc()) { 
-	    if (ch.detection & .tables.detect_flags.form_tree ||   
-		ch.detection & .tables.detect_flags.form_grass ||
-		ch.race.name == "modron" ||	
-		ch.race.name == "golem" ||
-		ch.form & .tables.form_flags.construct)
-		return true;
-	}
-	return false;
+	return (ch.is_npc() && (ch.form & .tables.form_flags.construct) != 0);
     };
-    
+
     .tmp.mob.isEthereal = function(ch) {
-	if (ch.is_npc()) { 
-	    if (ch.form & .tables.form_flags.mist ||   
-		ch.form & .tables.form_flags.intangible)
+	if (ch.is_npc()) {
+	    if (ch.form & .tables.form_flags.mist)
 		return true;
 	}
 	else if (.tmp.player.ghost(ch)) return true;
 	return false;
-    };	
-    
+    };
+
+    // Who can be charmed by what (the spells key on these helpers):
     // charm person: anyone except undeads/objects/nonadoptable
     // attract: charm person, only sentinels, only opposite sex
     // dominate: NPCs, except undeads/objects/ethereal/nonadoptable
     // control undead: only undeads/objects (including vampire PCs)
     // befriend: non-sentinels, except undeads/objects/nonadoptable
+    //
+    // Bloodless is the engine's body rule (IS_BLOODLESS): skeletal, construct,
+    // mist, or neither a heart nor cold blood. Zombies and ghouls bleed cold.
     .tmp.mob.isBloodless = function(ch) {
-	return (ch == null ||
-		.tmp.mob.isUndead(ch) ||
-		.tmp.mob.isObject(ch) ||
-		.tmp.mob.isEthereal(ch) ||
-		(!(ch.parts & .tables.part_flags.heart) 
-		 && !(ch.form & .tables.form_flags.cold_blood)));
+	return (ch == null || ch.bloodless);
+    };
+
+    // Cold blood is a body part: reptiles, fish, worms, zombies.
+    .tmp.mob.isColdBlooded = function(ch) {
+	return ((ch.parts & .tables.part_flags.cold_blood) != 0);
+    };
+
+    // A beast by body: no mind, not an object, not bones, not mist, not
+    // undead. Empty form (the "unique" race) is no beast.
+    .tmp.mob.isBeastForm = function(form) {
+	return (form != 0
+		&& (form & (.tables.form_flags.sentient
+			    | .tables.form_flags.construct
+			    | .tables.form_flags.skeletal
+			    | .tables.form_flags.mist)) == 0);
+    };
+
+    .tmp.mob.isBeast = function(ch) {
+	return (ch.is_npc() && .tmp.mob.isBeastForm(ch.form) && !.tmp.mob.isUndead(ch));
     };
     
     // Check if a mob has legs and can be thrown to the ground.
@@ -369,11 +381,12 @@
 	    return (.tmp.mob.hasPart(ch, "arms") &&
 		    .tmp.mob.hasPart(ch, "hands") &&
 		    .tmp.mob.hasPart(ch, "fingers"));
+	// A body of mist can't carry a neck, body, waist or tattoo item.
 	else if (obj.wear_loc == "neck_1" || obj.wear_loc == "neck_2")
 	    return (.tmp.mob.hasPart(ch, "head") &&
-		    !(ch.form & .tables.form_flags.intangible));
+		    !(ch.form & .tables.form_flags.mist));
 	else if (obj.wear_loc == "body")
-	    return (!(ch.form & .tables.form_flags.intangible));
+	    return (!(ch.form & .tables.form_flags.mist));
 	else if (obj.wear_loc == "head")
 	    return (.tmp.mob.hasPart(ch, "head"));
 	else if (obj.wear_loc == "legs")
@@ -393,7 +406,7 @@
 	else if (obj.wear_loc == "about")
 	    return true; // anyone can wear cloaks (for now)                   
 	else if (obj.wear_loc == "waist")
-	    return (!(ch.form & .tables.form_flags.intangible));
+	    return (!(ch.form & .tables.form_flags.mist));
 	else if (obj.wear_loc == "wrist_l" || obj.wear_loc == "wrist_r")
 	    return (.tmp.mob.hasPart(ch, "arms"));
 	else if (obj.wear_loc == "wield" || obj.wear_loc == "second_wield") 
@@ -413,20 +426,23 @@
 	else if (obj.wear_loc == "light")
 	    return true; // anyone can wear lights 
 	else if (obj.wear_loc == "tattoo")
-	    return (!(ch.form & .tables.form_flags.intangible));
+	    return (!(ch.form & .tables.form_flags.mist));
 	else if (obj.wear_loc == "face")
 	    return (.tmp.mob.hasPart(ch, "head"));
 	else if (obj.wear_loc == "ears")
 	    return (.tmp.mob.hasPart(ch, "ear"));
 	else if (obj.wear_loc == "horse")
 	    return (.tmp.mob.hasPart(ch, "four_hooves") &&
-		    !(ch.form & .tables.form_flags.intangible));
+		    !(ch.form & .tables.form_flags.mist));
 	else if (obj.wear_loc == "hooves")
 	    return (.tmp.mob.hasPart(ch, "two_hooves") ||
 		    .tmp.mob.hasPart(ch, "four_hooves"));
 	else if (obj.wear_loc == "hair")
+	    // Hair grows on the human torso and on furred cats and dogs.
 	    return (.tmp.mob.hasPart(ch, "head") &&
-		    ch.form & .tables.form_flags.mammal);
+		    (ch.form & (.tables.form_flags.mammal
+				| .tables.form_flags.canine
+				| .tables.form_flags.feline)) != 0);
 	else return true; // no more specifics for now
     };
     
