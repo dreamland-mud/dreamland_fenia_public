@@ -180,6 +180,13 @@
 		 (!ch.is_npc() && (ch.act & .tables.plr_flags.vampire)) );
     };
 
+    // True for an NPC of tier 1..maxTier (1 legend, 2 boss, 3 champion, 5 elite,
+    // 7 normal). Strong tiers resist control and instant death: charm and summon
+    // stop at champion (3), instakills and sleep at boss (2), vorpal at legend (1).
+    .tmp.mob.isStrongTier = function(ch, maxTier) {
+	return ch.is_npc() && ch.tier >= 1 && ch.tier <= maxTier;
+    };
+
     // Golems, modrons, plants: every animated object has the construct form.
     .tmp.mob.isObject = function(ch) {
 	return (ch.is_npc() && (ch.form & .tables.form_flags.construct) != 0);
