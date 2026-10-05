@@ -203,8 +203,10 @@
     //
     // Bloodless is the engine's body rule (IS_BLOODLESS): skeletal, construct,
     // mist, or neither a heart nor cold blood. Zombies and ghouls bleed cold.
+    // Vampire PCs keep a heart but count as bloodless too (Kit 2026-10-05).
     .tmp.mob.isBloodless = function(ch) {
-	return (ch == null || ch.bloodless);
+	return (ch == null || ch.bloodless
+		|| (!ch.is_npc() && (ch.act & .tables.plr_flags.vampire) != 0));
     };
 
     // Cold blood is a body part: reptiles, fish, worms, zombies.
