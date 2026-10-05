@@ -438,11 +438,8 @@
 	    return (.tmp.mob.hasPart(ch, "two_hooves") ||
 		    .tmp.mob.hasPart(ch, "four_hooves"));
 	else if (obj.wear_loc == "hair")
-	    // Hair grows on the human torso and on furred cats and dogs.
-	    return (.tmp.mob.hasPart(ch, "head") &&
-		    (ch.form & (.tables.form_flags.mammal
-				| .tables.form_flags.canine
-				| .tables.form_flags.feline)) != 0);
+	    // The race decides who has a hair slot (troll none, beast yes), not the form.
+	    return (ch.wearloc.isName("hair"));
 	else return true; // no more specifics for now
     };
     
