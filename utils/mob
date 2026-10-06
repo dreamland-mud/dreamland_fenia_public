@@ -187,7 +187,7 @@
 	return ch.is_npc() && ch.tier >= 1 && ch.tier <= maxTier;
     };
 
-    // Golems, modrons, plants: every animated object has the construct form.
+    // Golems, animated objects, plants: every one of them has the construct form.
     .tmp.mob.isObject = function(ch) {
 	return (ch.is_npc() && (ch.form & .tables.form_flags.construct) != 0);
     };
