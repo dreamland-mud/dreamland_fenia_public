@@ -1,6 +1,10 @@
 .Spell("armor").runVict = function() {
-    var msg;
+    var msg, quiet;
+    // Group prayers silence their sub-spells (private utils/spells helper).
+    quiet = (.tmp.spell != null && .tmp.spell.quiet != null && .tmp.spell.quiet(ch));
     if (vict.isAffected(skill.name)) {
+	if (quiet)
+	    return;
 	if (ch == vict) msg = ch.print(._("Ты уже под воздействием заклинания брони."));
 	else msg = ch.print(._("%1$^C1 уже под воздействием заклинания брони."), vict);
     }
@@ -14,11 +18,13 @@
     if (ch.profession.flags(ch) & .tables.prof_flags.divine) {
 	var relmm5; relmm5 = .tmp.religion.relNameMM(rel, 5);
 	vict.act(._("Тебя окружает священная броня, дарованная {1{C%s{2."), relmm5);
-	vict.recho(._("%^C4 окружает священная броня, дарованная {1{C%s{2."), vict, relmm5);
+	if (!quiet)
+	    vict.recho(._("%^C4 окружает священная броня, дарованная {1{C%s{2."), vict, relmm5);
     } // Если молитва, пишем, от какого божества
     else {
 	vict.act(._("Тебя окружает магическая броня, улучшающая защитные навыки."));
-	vict.recho(._("%^C4 окружает магическая броня, улучшающая защитные навыки."), vict);
+	if (!quiet)
+	    vict.recho(._("%^C4 окружает магическая броня, улучшающая защитные навыки."), vict);
     }
 
     var af; af = .Affect();
