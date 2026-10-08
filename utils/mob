@@ -187,6 +187,26 @@
 	return ch.is_npc() && ch.tier >= 1 && ch.tier <= maxTier;
     };
 
+    // Debuffs (poison, plague, blindness) still land on strong mobs but wear
+    // off sooner, so "cast and wait outside" stops paying and a group's caster
+    // has to keep them up. Flat immunity would delete those roles from boss fights.
+    .tmp.mob.tierDuration = function(ch, duration) {
+	if (!.tmp.mob.isStrongTier(ch, 5) || duration <= 0) return duration;
+	if (ch.tier == 1) duration = duration / 4;
+	else if (ch.tier == 2) duration = duration / 3;
+	else if (ch.tier == 3) duration = duration / 2;
+	else duration = duration * 2 / 3;
+	return .max(1, duration);
+    };
+
+    // How deep a stacking debuff (poison, plague) may go on this target.
+    .tmp.mob.tierStackCap = function(ch) {
+	if (!.tmp.mob.isStrongTier(ch, 3)) return 10;
+	if (ch.tier == 1) return 2;
+	if (ch.tier == 2) return 3;
+	return 5;
+    };
+
     // Golems, animated objects, plants: every one of them has the construct form.
     .tmp.mob.isObject = function(ch) {
 	return (ch.is_npc() && (ch.form & .tables.form_flags.construct) != 0);
@@ -826,10 +846,22 @@
 		for (a in room.affected) 
 		    if (a.type == "heat") aff = a;
 	    }
-	    if (aff != null && aff.source != null && !aff.source.is_safe(ch))
+	    // The arsonist is the attacker only while standing in the blaze: no
+	    // kill credit for a fire left burning, and never against their own
+	    // group. Immortals testing fires stay out of it entirely.
+	    var src; src = aff.source;
+	    if (src != null && src.is_immortal()) src = null;
+	    if (src != null && src.connected && src.in_room == room
+		&& !src.is_same_group(ch) && !src.is_safe(ch))
 		aff.damage(ch, dam, aff.type, "fire", "other"); // PK damage if possible
 	    else ch.rawdamage(ch, dam, "fire", "self");
 	    if (!.tmp.mob.valid(ch)) return; // check if ch is still alive
+	    // An elite or stronger mob remembers who set the blaze and comes
+	    // looking, even if they stand outside.
+	    if (src != null && .tmp.mob.isStrongTier(ch, 5)) {
+		ch.ai_setLastFought(src);
+		ch.ai_remember(src);
+	    }
 	}
 
 	if (ch.isAffected("chill touch") && .chance(50 + fire_power))
