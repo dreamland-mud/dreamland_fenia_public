@@ -12,6 +12,49 @@
 		|| triggers.has("onEquip")
 		|| triggers.has("onSpec");
     };
+
+    // Rarity tier: 1 legendary .. 5 common, from the random-loot prop "tier" or
+    // hero gear questTier (0..3 -> uncommon, rare, epic, epic); 0 = hand-made.
+    .tmp.object.rarityTier = function(obj) {
+	var t; t = obj.property("tier", "");
+	if (t == "") {
+	    var qt; qt = obj.property("questTier", "");
+	    if (qt == "") return 0;
+	    if (qt == "0") return 4;
+	    if (qt == "1") return 3;
+	    return 2;
+	}
+	if (t == "1") return 1;
+	if (t == "2") return 2;
+	if (t == "3") return 3;
+	if (t == "4") return 4;
+	return 5;
+    };
+
+    // Repair price in silver: pay for the damage only, scaled by item level and
+    // rarity. fight/item_value measure.repair_cm = silver per item level at 100%
+    // damage for tier 1..5; hand-made items count as uncommon. At least 1 gold.
+    .tmp.object.repairPrice = function(obj) {
+	var t, k, cm, dmg;
+	t = .tmp.object.rarityTier(obj);
+	if (t < 1 || t > 5)
+	    t = 4;
+	k = null;
+	cm = .config("fight/item_value").measure.repair_cm;
+	if (cm != null)
+	    k = cm[t - 1];
+	if (k == null) {
+	    if (t == 1) k = 315;
+	    else if (t == 2) k = 175;
+	    else if (t == 3) k = 105;
+	    else if (t == 4) k = 70;
+	    else k = 35;
+	}
+	dmg = 100 - obj.condition;
+	if (dmg < 0)
+	    dmg = 0;
+	return .max(100, .max(1, obj.level) * k * dmg / 100);
+    };
     
     /////////////////////////////////////////////////////////////
     ////////////////////// MATERIALS ////////////////////////////
