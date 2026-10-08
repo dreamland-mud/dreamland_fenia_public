@@ -349,11 +349,12 @@
 		if (service.price_silver == null) service.price_silver = 0;
 		for (item in service.repair_list) {
 		    if (!.tmp.object.valid(item)) continue; // sanity check
-		    service.price_silver = service.price_silver + .max(1, item.level)*10*100;
-		    service.price_silver = service.price_silver + 
-			item.cost*(100 - item.condition)/100;		        
-		}  
-	    }			
+		    service.price_silver = service.price_silver + .tmp.object.repairPrice(item);
+		}
+	    }
+	    else if (service.object != null && service.name == "repair") {
+		service.price_silver = service.price_silver + .tmp.object.repairPrice(service.object);
+	    }
 	    else if (service.object != null) {
 		// For individual dynamic object services calculate the actual price.
 		// Convert into silver for small fraction calcs, then process later.
@@ -364,10 +365,6 @@
 	    // Players can bring their own horseshoes: add up prices in this case
 	    if (service.name == "horseshoe") // Reducing price compared to old code
 		service.price_silver = service.price_silver + client.level*10*100;
-
-	    // Repair is 30% cheaper across the board (single item and repair-all).
-	    if (service.name == "repair")
-		service.price_silver = service.price_silver * 70 / 100;
 
 	    // Adjust prices in silver vs. race, clan etc.
 	    service.price_silver = .tmp.currency.adjustPrice(
