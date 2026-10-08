@@ -461,7 +461,7 @@
 		    msg = msg + viewer.print(._("Я могу ремонтировать только броню и оружие."));
 		    msg = msg + viewer.print(._("{/Починить {1%1$O4{2 можно только магией у чародеев."), service.object);
 		}
-		else if (service.object.condition == 100)
+		else if (service.object.condition >= 100) // > 100 is legacy smithing overflow
 		    msg = msg + viewer.print(._("{1%1$^O1{2 не нужда%1$nется|ются в %2$N6."),
 			service.object, svcname);
 	    }
