@@ -60,10 +60,13 @@
     ////////////////////// MATERIALS ////////////////////////////
     /////////////////////////////////////////////////////////////
     
+    // A quest target (stolen loot, kidnap mark...) is a borrowed world item
+    // the quest cannot replace: losing it to fire or acid strands the quest.
     .tmp.object.indestructible = function(obj) {
 	return (!.tmp.object.valid(obj)
 		|| obj.extra_flags & .tables.extra_flags.nopurge
-		|| obj.personal != null);
+		|| obj.personal != null
+		|| obj.cppBehavior == "ObjQuestTarget");
     };
 	
     .tmp.object.isElastic = function(obj) {
