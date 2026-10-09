@@ -308,7 +308,7 @@
 	// Fill all three language slots so %O nouns (act/decay/look) localize per
 	// viewer; the prototype (vnum 75) ships "%s" placeholders we substitute here.
 	puddle.short_descr = "луж|а|и|е|у|ей|е " + liq.short_descr.ruscase(2);
-	puddle.setShort("a puddle of " + liq.getShort(0), 0);
+	puddle.setShort("puddle of " + liq.getShort(0), 0);
 	puddle.setShort("калюж|а|і|і|у|ею|і " + liq.getShort(2).ruscase(2), 2);
 	puddle.description = "{xЛужа " + liq.short_descr.ruscase(2) + " разлита тут.";
 	puddle.setDescr("{xA puddle of " + liq.getShort(0) + " is spilled here.", 0);
@@ -426,7 +426,7 @@
 	// description are RU-only setters, so EN and UA must be filled explicitly
 	// or the raw template leaks into the decay message.
 	puddle.short_descr = "луж|а|и|е|у|ей|е воды";
-	puddle.setShort("a puddle of water", 0);
+	puddle.setShort("puddle of water", 0);
 	puddle.setShort("калюж|а|і|і|у|ею|і води", 2);
 	puddle.description = "{xДождевая лужа хлюпает под ногами.";
 	puddle.setDescr("{xA rain puddle squelches underfoot.", 0);
