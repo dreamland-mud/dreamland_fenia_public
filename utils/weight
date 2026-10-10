@@ -32,12 +32,11 @@
     // items real-world weights: weapons lighter and much closer to each other
     // than the old builder numbers. Every weight-driven effect (slice, disarm,
     // smash, bash, kick, blackjack, parry, throw, salvage, smelting) was tuned
-    // on the old numbers, so it reads this instead (crush reads effectCarry): a
-    // weight that is on the
-    // model is scaled by its class's old median / model median, item by item,
-    // so heavier and lighter pieces inside a class keep their spread. A
-    // builder or script weight counts as it is. A binary without .itemWeight
-    // changes nothing.
+    // on the old numbers, so it reads this instead (crush reads effectCarry):
+    // a weight that is on the model is scaled by its class's old median / model
+    // median, item by item, so heavier and lighter pieces inside a class keep
+    // their spread. A builder or script weight counts as it is. A binary
+    // without .itemWeight changes nothing.
     .tmp.weight.effectWeight = function(obj) {
 	var model;
 	try {
