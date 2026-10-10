@@ -28,6 +28,149 @@
 	}
     };
     
+    // The item weight model (docs/plans/weight-cost-sweep.md, 2026-10) gave
+    // items real-world weights: weapons lighter and much closer to each other
+    // than the old builder numbers. Every weight-driven effect (slice, disarm,
+    // smash, bash, kick, blackjack, parry, throw, salvage, smelting) was tuned
+    // on the old numbers, so it reads this instead (crush reads effectCarry): a
+    // weight that is on the
+    // model is scaled by its class's old median / model median, item by item,
+    // so heavier and lighter pieces inside a class keep their spread. A
+    // builder or script weight counts as it is. A binary without .itemWeight
+    // changes nothing.
+    .tmp.weight.effectWeight = function(obj) {
+	var model;
+	try {
+	    model = .itemWeight(obj, "");
+	} catch (ex) {
+	    return obj.weight;
+	}
+	if (model != obj.weight)
+	    return obj.weight;
+	return obj.weight * .tmp.weight.effectWeightScale(obj) / 100;
+    };
+
+    // Old median weight / model median weight of the item's weapon class (and
+    // hands), held item type or wear slot, in percent (scripts/weight-cost-census.py,
+    // re-solve it whenever the model changes). The 2h mace median is a kept
+    // builder weight, so it takes the on-model 2h maces.
+    .tmp.weight.effectWeightScale = function(obj) {
+	var W, c, two;
+	W = .tables.wear_flags;
+	if (obj.item_type == .tables.item_table.weapon) {
+	    c = .tmp.object.getWeaponClass(obj);
+	    two = obj.hasWeaponFlag("two_hands");
+	    if (c == "axe" && two)
+		return 704;
+	    if (c == "axe")
+		return 333;
+	    if (c == "flail")
+		return 412;
+	    if (c == "mace" && two)
+		return 197;
+	    if (c == "mace")
+		return 189;
+	    if (c == "sword" && two)
+		return 288;
+	    if (c == "sword")
+		return 103;
+	    if (c == "polearm" && two)
+		return 155;
+	    if (c == "polearm")
+		return 203;
+	    if (c == "spear" && two)
+		return 52;
+	    if (c == "spear")
+		return 132;
+	    if (c == "lance" && two)
+		return 129;
+	    if (c == "lance")
+		return 152;
+	    if (c == "bow" && two)
+		return 369;
+	    if (c == "bow")
+		return 62;
+	    if (c == "whip" && two)
+		return 45;
+	    if (c == "whip")
+		return 182;
+	    if (c == "dagger")
+		return 111;
+	    if (c == "exotic" && two)
+		return 90;
+	    if (c == "exotic")
+		return 92;
+	    if (c == "stone")
+		return 214;
+	    return 100;
+	}
+	// Held things (blackjack's tool): by item type.
+	if (obj.wear_flags & W.hold) {
+	    if (obj.item_type == .tables.item_table.wand)
+		return 334;
+	    if (obj.item_type == .tables.item_table.potion)
+		return 200;
+	    if (obj.item_type == .tables.item_table.scroll)
+		return 700;
+	    if (obj.item_type == .tables.item_table.gem)
+		return 250;
+	    if (obj.item_type == .tables.item_table.key)
+		return 400;
+	    if (obj.item_type == .tables.item_table.staff)
+		return 55;
+	    if (obj.item_type == .tables.item_table.treasure)
+		return 50;
+	    if (obj.item_type == .tables.item_table.trash)
+		return 84;
+	    if (obj.item_type == .tables.item_table.drink)
+		return 91;
+	    if (obj.item_type == .tables.item_table.container)
+		return 44;
+	    return 100;
+	}
+	if (obj.item_type != .tables.item_table.armor && obj.item_type != .tables.item_table.clothing)
+	    return 100;
+	if (obj.wear_flags & W.wear_shield)
+	    return 110;
+	if (obj.wear_flags & W.wear_body)
+	    return 78;
+	if (obj.wear_flags & W.wear_head)
+	    return 174;
+	if (obj.wear_flags & W.wear_arms)
+	    return 200;
+	if (obj.wear_flags & W.wear_hands)
+	    return 333;
+	if (obj.wear_flags & W.wear_legs)
+	    return 140;
+	if (obj.wear_flags & W.wear_feet)
+	    return 69;
+	if (obj.wear_flags & W.wear_about)
+	    return 29;
+	if (obj.wear_flags & W.wear_waist)
+	    return 429;
+	if (obj.wear_flags & W.wear_wrist)
+	    return 167;
+	if (obj.wear_flags & W.wear_face)
+	    return 250;
+	if (obj.wear_flags & W.wear_neck)
+	    return 125;
+	if (obj.wear_flags & W.wear_ears)
+	    return 500;
+	if (obj.wear_flags & W.wear_float)
+	    return 27;
+	return 100;
+    };
+
+    // Carried weight for effects (crush): the carry weight with every carried
+    // and worn item at its effect weight. Bag contents and coins count raw.
+    .tmp.weight.effectCarry = function(ch) {
+	var total, it;
+	total = ch.carry_weight;
+	for (it in ch.items)
+	    total = total + .tmp.weight.effectWeight(it) - it.weight;
+	return total;
+    };
+
     // Weight of gold coins in 1/10 of a pound, as the engine's Money::weight.
     .tmp.weight.gold = function(amount) {
 	return amount * 2 / 5;  

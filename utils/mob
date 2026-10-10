@@ -738,9 +738,10 @@
 	// dex increases the chance to remove on time to reduce damage
 	// heavy weight reduces the chance to remove
 	remove = .number_range(1, 20) + (ch.cur_dex - 20) * 2;
-	remove = .max(1, remove - .number_range(1, obj.weight/10));
+	var heft; heft = .tmp.weight.effectWeight(obj);
+	remove = .max(1, remove - .number_range(1, heft/10));
 	// CON decreases chances to drop (resist pain)
-	drop = .number_range(1, 20) + (ch.cur_con - 20) * 2 + obj.weight/10;
+	drop = .number_range(1, 20) + (ch.cur_con - 20) * 2 + heft/10;
 	
 	if (obj.carried_by == ch)
 	    dam = .dice(.number_range(obj.level / 2, obj.level), fire_power * 2);
