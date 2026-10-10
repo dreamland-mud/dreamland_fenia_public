@@ -173,7 +173,7 @@
     .tmp.object.movable = function(ch, obj) {
 	return (.tmp.object.valid(obj) &&
 		(obj.wear_flags & .tables.wear_flags.take) &&
-		obj.weight <= 200 + .urange(-20, (ch.cur_str - 20) * 3, 20));
+		.tmp.weight.effectWeight(obj) <= 200 + .urange(-20, (ch.cur_str - 20) * 3, 20));
     };		
     
     // Create a .List() of worn items that can be removed.

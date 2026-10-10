@@ -2,145 +2,185 @@
     if (.tmp.weight == null) .tmp.weight = .Map();
     if (.tmp.object == null) .tmp.object = .Map();
     
-    // Skin a worn armor/clothing piece covers at full coverage, in cm2. 0 = not a
-    // body-shell piece: the item keeps the solid-block size from dimensions().
-    .tmp.weight.shellArea = function(obj) {
-	var W; W = .tables.wear_flags;
-	if (obj.item_type != .tables.item_table.armor && obj.item_type != .tables.item_table.clothing)
-	    return 0;
-	if (obj.wear_flags & W.wear_body) return 7800;   // 65 x 120 cm torso
-	if (obj.wear_flags & W.wear_head) return 1300;
-	if (obj.wear_flags & W.wear_arms) return 3600;
-	if (obj.wear_flags & W.wear_hands) return 1400;
-	if (obj.wear_flags & W.wear_legs) return 3800;
-	if (obj.wear_flags & W.wear_feet) return 2100;
-	if (obj.wear_flags & W.wear_shield) return 6000;
-	if (obj.wear_flags & W.wear_about) return 13600; // 68 x 200 cm cloak
-	if (obj.wear_flags & W.wear_face) return 270;
-	if (obj.wear_flags & W.wear_waist) return 400;
-	if (obj.wear_flags & W.wear_wrist) return 100;
-	return 0;
-    };
-
-    // Shell thickness by material type, in tenths of a millimetre.
-    .tmp.weight.shellThickness = function(config) {
-	var t; t = config.type;
-	if (t.contains("cloth")) return 20;
-	if (t.contains("leather")) return 30;
-	if (t.contains("wood")) return 100;
-	if (t.contains("metal")) return 15;
-	if (t.contains("mineral")) return 50;
-	return 20;
-    };
-
-    // Share of the shell a piece covers, in percent. Cloth always wraps the whole
-    // of it; plate, mail and leather go by heft: heavy covers everything, medium
-    // most, light leaves gaps. heft = the argument, else the item's "heft"
-    // property, else medium. A "coverage" property (a circlet, a buckler) wins.
-    .tmp.weight.coverage = function(obj, heft, config) {
-	var c;
-	if (config.type.contains("cloth"))
-	    return 100;
-	c = .tmp.system.toNumber(obj.property("coverage", 0));
-	if (c != null && c > 0)
-	    return .min(c, 100);
-	if (heft == null || heft == "")
-	    heft = obj.property("heft", "medium");
-	if (heft == "heavy")
-	    return 100;
-	if (heft == "light")
-	    return 40;
-	return 65;
-    };
+    // Retired with the shell/block model (weight-cost-sweep): annulled so the
+    // old codesource is not kept alive by them.
+    .tmp.weight.shellArea = null;
+    .tmp.weight.shellThickness = null;
+    .tmp.weight.coverage = null;
 
     // Weight in 1/10 of a pound, heft from the item's own "heft" property.
     .tmp.weight.calculateWeight = function(obj) {
 	return .tmp.weight.calculateWeightAs(obj, "");
     };
 
-    // Weight in 1/10 of a pound for heft light|medium|heavy ("" = the item's own).
-    // Worn armor and clothing: shell area x coverage x material thickness;
-    // everything else: the solid block from dimensions(). Several materials split
-    // the piece 2^(n-1) : ... : 2 : 1, the first one main. Rational math
-    // (.add/.mult/.div) all the way: Fenia ints are 32-bit, and int + rational
-    // truncates the fraction.
+    // Weight in 1/10 of a pound for heft light|medium|heavy ("" = the item's own),
+    // from the engine's item weight model (C++ item_weight, fight/item_weight.json):
+    // reference kg for the slot, weapon class or item type x material density x heft.
+    // Coins by the coin formula below. A binary without .itemWeight keeps the
+    // item's current weight.
     .tmp.weight.calculateWeightAs = function(obj, heft) {
 	if (!.tmp.object.valid(obj)) return 0;
-	if (obj.item_type == .tables.item_table.money)
-	    return .tmp.weight.silver(obj.value0) + .tmp.weight.gold(obj.value1);
-
-	var area, volume, size, materials, n, den, share, m, config, part, grams, weight;
-	area = .tmp.weight.shellArea(obj);
-	volume = 0;
-	if (area == 0) {
-	    size = .tmp.object.dimensions(obj);
-	    // mm3 -> cm3
-	    volume = .div(.mult(.mult(size.length, size.width), .mult(size.thickness, size.quantity)), 1000);
+	if (heft == null) heft = "";
+	try {
+	    return .itemWeight(obj, heft);
+	} catch (ex) {
+	    return obj.weight;
 	}
-
-	materials = obj.material.name.split(", ");
-	n = materials.size();
-	den = 1;
-	for (share = 0; share < n; share = share + 1)
-	    den = den * 2;
-	share = den;
-	den = den - 1;
-
-	grams = 0;
-	for (m in materials) {
-	    share = share / 2;
-	    config = .tmp.object.getMaterialConfig(m);
-	    if (config == null) {
-		.discord_wiznet(.fmt(":name_badge: [MATERIAL] %O1 [%d]: material '%s' returned null config",
-		    obj, obj.vnum, m));
-		return 1;
-	    }
-	    part = volume;
-	    if (area > 0)
-		part = .div(.mult(.mult(area, .tmp.weight.coverage(obj, heft, config)),
-				  .tmp.weight.shellThickness(config)), 10000);
-	    // cm3 x kg/m3 / 1000 = grams, times this material's share
-	    grams = .add(grams, .div(.mult(.mult(part, config.rho), share), den * 1000));
-	}
-
-	// 1/10 of a pound = 45.4 g
-	weight = .tmp.system.toNumber(.div(grams, "45.4"));
-	if (weight == null || weight < 0)
-	    weight = 1000000;
-	weight = .urange(1, weight, 1000000);
-
-	// Significantly lighten certain item types
-	if (obj.item_type == .tables.item_table.weapon) {
-	    if (obj.pIndexData.value0 == .tables.weapon_class.arrow)
-		weight = .urange(1, weight / 4, 20);
-	    else if (obj.pIndexData.value0 == .tables.weapon_class.spear)
-		weight = .urange(1, weight / 3, 200);
-	    else if (obj.pIndexData.value0 == .tables.weapon_class.polearm)
-		weight = .urange(1, weight / 2, 400);
-	}
-	else if (obj.item_type == .tables.item_table.jewelry)
-	    weight = .urange(1, weight / 3, 80);
-	else if (obj.item_type == .tables.item_table.drink)
-	    weight = .urange(1, weight / 5, 100) + obj.pIndexData.value1;
-	else if (obj.item_type == .tables.item_table.trash)
-	    weight = .urange(1, weight / 5, 100);
-	else if (obj.item_type == .tables.item_table.container)
-	    weight = .urange(1, weight / 5, 5000);
-	    
-	return weight;
     };
     
-    // Weight given number of gold coins (in pounds).
+    // The item weight model (docs/plans/weight-cost-sweep.md, 2026-10) gave
+    // items real-world weights: weapons lighter and much closer to each other
+    // than the old builder numbers. Every weight-driven effect (slice, disarm,
+    // smash, bash, kick, blackjack, parry, throw, salvage, smelting) was tuned
+    // on the old numbers, so it reads this instead (crush reads effectCarry):
+    // a weight that is on the model is scaled by its class's old median / model
+    // median, item by item, so heavier and lighter pieces inside a class keep
+    // their spread. A builder or script weight counts as it is. A binary
+    // without .itemWeight changes nothing.
+    .tmp.weight.effectWeight = function(obj) {
+	var model;
+	try {
+	    model = .itemWeight(obj, "");
+	} catch (ex) {
+	    return obj.weight;
+	}
+	if (model != obj.weight)
+	    return obj.weight;
+	return obj.weight * .tmp.weight.effectWeightScale(obj) / 100;
+    };
+
+    // Old median weight / model median weight of the item's weapon class (and
+    // hands), held item type or wear slot, in percent (scripts/weight-cost-census.py,
+    // re-solve it whenever the model changes). The 2h mace median is a kept
+    // builder weight, so it takes the on-model 2h maces.
+    .tmp.weight.effectWeightScale = function(obj) {
+	var W, c, two;
+	W = .tables.wear_flags;
+	if (obj.item_type == .tables.item_table.weapon) {
+	    c = .tmp.object.getWeaponClass(obj);
+	    two = obj.hasWeaponFlag("two_hands");
+	    if (c == "axe" && two)
+		return 704;
+	    if (c == "axe")
+		return 333;
+	    if (c == "flail")
+		return 412;
+	    if (c == "mace" && two)
+		return 197;
+	    if (c == "mace")
+		return 189;
+	    if (c == "sword" && two)
+		return 288;
+	    if (c == "sword")
+		return 103;
+	    if (c == "polearm" && two)
+		return 155;
+	    if (c == "polearm")
+		return 203;
+	    if (c == "spear" && two)
+		return 52;
+	    if (c == "spear")
+		return 132;
+	    if (c == "lance" && two)
+		return 129;
+	    if (c == "lance")
+		return 152;
+	    if (c == "bow" && two)
+		return 369;
+	    if (c == "bow")
+		return 62;
+	    if (c == "whip" && two)
+		return 45;
+	    if (c == "whip")
+		return 182;
+	    if (c == "dagger")
+		return 111;
+	    if (c == "exotic" && two)
+		return 90;
+	    if (c == "exotic")
+		return 92;
+	    if (c == "stone")
+		return 214;
+	    return 100;
+	}
+	// Held things (blackjack's tool): by item type.
+	if (obj.wear_flags & W.hold) {
+	    if (obj.item_type == .tables.item_table.wand)
+		return 334;
+	    if (obj.item_type == .tables.item_table.potion)
+		return 200;
+	    if (obj.item_type == .tables.item_table.scroll)
+		return 700;
+	    if (obj.item_type == .tables.item_table.gem)
+		return 250;
+	    if (obj.item_type == .tables.item_table.key)
+		return 400;
+	    if (obj.item_type == .tables.item_table.staff)
+		return 55;
+	    if (obj.item_type == .tables.item_table.treasure)
+		return 50;
+	    if (obj.item_type == .tables.item_table.trash)
+		return 84;
+	    if (obj.item_type == .tables.item_table.drink)
+		return 91;
+	    if (obj.item_type == .tables.item_table.container)
+		return 44;
+	    return 100;
+	}
+	if (obj.item_type != .tables.item_table.armor && obj.item_type != .tables.item_table.clothing)
+	    return 100;
+	if (obj.wear_flags & W.wear_shield)
+	    return 110;
+	if (obj.wear_flags & W.wear_body)
+	    return 78;
+	if (obj.wear_flags & W.wear_head)
+	    return 174;
+	if (obj.wear_flags & W.wear_arms)
+	    return 200;
+	if (obj.wear_flags & W.wear_hands)
+	    return 333;
+	if (obj.wear_flags & W.wear_legs)
+	    return 140;
+	if (obj.wear_flags & W.wear_feet)
+	    return 69;
+	if (obj.wear_flags & W.wear_about)
+	    return 29;
+	if (obj.wear_flags & W.wear_waist)
+	    return 429;
+	if (obj.wear_flags & W.wear_wrist)
+	    return 167;
+	if (obj.wear_flags & W.wear_face)
+	    return 250;
+	if (obj.wear_flags & W.wear_neck)
+	    return 125;
+	if (obj.wear_flags & W.wear_ears)
+	    return 500;
+	if (obj.wear_flags & W.wear_float)
+	    return 27;
+	return 100;
+    };
+
+    // Carried weight for effects (crush): the carry weight with every carried
+    // and worn item at its effect weight. Bag contents and coins count raw.
+    .tmp.weight.effectCarry = function(ch) {
+	var total, it;
+	total = ch.carry_weight;
+	for (it in ch.items)
+	    total = total + .tmp.weight.effectWeight(it) - it.weight;
+	return total;
+    };
+
+    // Weight of gold coins in 1/10 of a pound, as the engine's Money::weight.
     .tmp.weight.gold = function(amount) {
 	return amount * 2 / 5;  
     };
     
-    // Weight given number of silver coins (in pounds).
+    // Weight of silver coins in 1/10 of a pound, as the engine's Money::weight.
     .tmp.weight.silver = function(amount) {
 	return amount / 12;
     };
     
-    // Weight given amount of money expressed in silver.
+    // Weight of an amount of money expressed in silver, in 1/10 of a pound.
     .tmp.weight.money = function(amount) {
 	var gold_amount; gold_amount = amount / 100;
 	var silver_amount; silver_amount = amount % 100;
