@@ -213,7 +213,9 @@
 	if (tier == 1) return .tmp.time.weeks(2);
 	if (tier == 2) return .tmp.time.weeks(3);
 	if (tier == 3) return .tmp.time.weeks(5);
-	if (tier == 4) return .tmp.time.weeks(10);
+	// Common (5) decays like uncommon: crafts from c1 blueprints never
+	// decayed at all while 0 meant "no timer".
+	if (tier == 4 || tier == 5) return .tmp.time.weeks(10);
 	return 0;
     };
 })
