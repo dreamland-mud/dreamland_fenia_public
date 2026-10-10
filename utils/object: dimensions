@@ -72,12 +72,6 @@
 		    size.thickness = 3;
 		    size.quantity  = 1;
 	}
-	else if (obj.wear_flags & .tables.wear_flags.hold) {
-		    size.length    = 500; 
-		    size.width     = 20;
-		    size.thickness = 20;
-		    size.quantity  = 1;                
-	}  
 	else if (obj.wear_flags & .tables.wear_flags.wear_hooves) {
 		    size.length    = 280; // ~2x hoof diameter
 		    size.width     = 50; // surface width
@@ -205,13 +199,13 @@
 	    
 	    // Size of lances is always calculated as if two-handed.
 	    // For others it's doubled if two-handed.
-	    else if (obj.value0 == .tables.weapon_class.lance) {
+	    if (obj.value0 == .tables.weapon_class.lance) {
 		    size.length    = 2500; 
 		    size.width     = 70;
 		    size.thickness = 70;
 		    size.quantity  = 1;
 	    }            
-	    else if (obj.hasWeaponFlag("two_hands")) {
+	    else if (size.length != null && obj.hasWeaponFlag("two_hands")) {
 		    size.length = size.length * 5 / 2;
 		    size.width = size.width + size.width / 3;
 	    }
@@ -392,6 +386,15 @@
 	}
 	// trash, money, food fit into the default dimensions
 	// jewelry, clothing etc. always have wearlocs
+	
+	// Held things without a size of their own (a held weapon, a trinket):
+	// a rod. After the item type, so a held potion or wand keeps its shape.
+	if (size.length == null && (obj.wear_flags & .tables.wear_flags.hold)) {
+		    size.length    = 500; 
+		    size.width     = 20;
+		    size.thickness = 20;
+		    size.quantity  = 1;                
+	}
 	
 	if (size == null || size.length == null) {
 	    // Set defaults just in case: some random blob of matter
