@@ -1091,7 +1091,7 @@
 	// Daze and confused: muscles lock up for a couple of rounds
 	if (!ch.saves_spell(ch, shock_power * 10, "lightning")) {
 	    ch.act(._("{BТвое тело парализовано.{x"));
-	    ch.recho(._("{BТело %1$C2 сводит судорогой.{x"), ch);
+	    .tmp.player.fightspamState(ch, null, ._("{BТело %1$C2 сводит судорогой.{x"), ch, null);
 	    // daze is measured in pulses, and setDaze in C++ only ever raises it
 	    ch.daze = .max(ch.daze, .urange(8, shock_power * 2, 20));
 
@@ -1389,7 +1389,7 @@
 	// AFF_SCREAM is bits.conf:101.
 	if (!ch.isAffected("scream")) {
 	    ch.act(._("{MТы ничего не слышишь!{x"));
-	    ch.recho(._("%1$^C1 теперь ничего не слышит."), ch);
+	    .tmp.player.fightspamState(ch, null, ._("%1$^C1 теперь ничего не слышит."), ch, null);
 	    var af; af = .Affect();
 	    af.type		= "scream";
 	    af.level		= scream_power * 10 + 1;
@@ -1402,7 +1402,7 @@
 	// ever raises, so mirror that with max rather than assignment.
 	if (.chance(50)) {
 	    ch.act(._("{WТы ошеломленно трясешь головой!{x"));
-	    ch.recho(._("%1$^C1 ошеломленно трясет головой."), ch);
+	    .tmp.player.fightspamState(ch, null, ._("%1$^C1 ошеломленно трясет головой."), ch, null);
 	    ch.daze = .max(ch.daze, .urange(8, scream_power * 2, 20));
 	}
 
@@ -1410,7 +1410,7 @@
 	// warlocks and witches carry it -- the help article promises exactly this.
 	if (ch.fighting != null) {
 	    ch.act(._("Дикий вопль заставляет тебя отвлечься от сражения!"));
-	    ch.recho(._("Дикий вопль заставляет %1$C4 отвлечься от сражения!"), ch);
+	    .tmp.player.fightspamState(ch, null, ._("Дикий вопль заставляет %1$C4 отвлечься от сражения!"), ch, null);
 	    ch.stop_fighting(true);
 	}
     };
