@@ -297,6 +297,12 @@
 	return ._(.tmp.room.dropWhereRaw(room));
     };
 
+    // One variant per room, so every fall in the same room lands on the same
+    // floor instead of a fresh roll per message.
+    .tmp.room.dropPick = function(room, variants) {
+	return variants.at(room.vnum % variants.size());
+    };
+
     // Raw RU location string picked by sector_type, for eager .fmt-built messages.
     .tmp.room.dropWhereRaw = function(room) {
 	var msg; msg = "на землю";
@@ -310,19 +316,19 @@
 			msg = "в воду";
 		else if (sect == .tables.sector_table.city) {
 			if (!room.isOutside()) msg = "на пол";
-			else msg = .List().add("на дорогу", "на мостовую", "на брусчатку").random();
+			else msg = .tmp.room.dropPick(room, .List().add("на дорогу", "на мостовую", "на брусчатку"));
 		}
 		else if (sect == .tables.sector_table.inside) msg = "на пол";
 		else if (sect == .tables.sector_table.hills)
-			msg = .List().add("в траву", "на склон холма", "на поросшую травой землю").random();
+			msg = .tmp.room.dropPick(room, .List().add("в траву", "на склон холма", "на поросшую травой землю"));
 		else if (sect == .tables.sector_table.field)
-			msg = .List().add("в луговую траву", "в цветы и траву", "на поросшую травой землю").random();
+			msg = .tmp.room.dropPick(room, .List().add("в луговую траву", "в цветы и траву", "на поросшую травой землю"));
 		else if (sect == .tables.sector_table.forest)
-			msg = .List().add("в траву", "в лесной мох", "на влажную лесную землю").random();
+			msg = .tmp.room.dropPick(room, .List().add("в траву", "в лесной мох", "на влажную лесную землю"));
 		else if (sect == .tables.sector_table.mountain)
-			msg = .List().add("на камни", "на сухую горную землю").random();
+			msg = .tmp.room.dropPick(room, .List().add("на камни", "на сухую горную землю"));
 		else if (sect == .tables.sector_table.desert)
-			msg = .List().add("в песок", "на потрескавшуюся от засухи землю").random();
+			msg = .tmp.room.dropPick(room, .List().add("в песок", "на потрескавшуюся от засухи землю"));
 		else if (sect == .tables.sector_table.air) msg = "в воздух";
 	}
 	return msg;
