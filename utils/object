@@ -394,12 +394,16 @@
     // into swill, and the timer grows with the poured volume. verbose prints
     // the formation / spread / mix line, which the pour command shows.
     // Fire and heat react to the poured liquid before it merges.
+    // Spilled in open air, the liquid lands in the room puddleLanding picks,
+    // silently: callers that announce the fall do it themselves.
     .tmp.object.spill_puddle = function(liquid, room, amount, poisoned, verbose) {
 	if (amount == null) amount = 50; // default
 	if (room == null) return;
 	var liq;
 	try {liq = .Liquid(liquid);} catch (e);
 	if (liq == null) return;
+	room = .tmp.object.puddleLanding(room);
+	if (room == null) return; // nothing below the open air: the liquid is lost
 	// short_descr is RU only, .mm resolves the liquid name per viewer language.
 	var liqName; liqName = .mm(liq.getShort(0), liq.getShort(1), liq.getShort(2));
 
@@ -412,10 +416,11 @@
 
 	var puddle; puddle = .tmp.object.make_puddle(liquid, amount, poisoned);
 	if (puddle == null) return;
-	.tmp.object.dropObj(null, puddle, false, room);
-	if (!.tmp.object.valid(puddle) || puddle.in_room == null) return;
+	// obj_to_room, not dropObj: the landing room is already resolved, and
+	// dropObj's air fall would start from the Fenia storage room that
+	// create() parks a new object in, not from this room.
+	puddle.obj_to_room(room);
 
-	room = puddle.in_room; // puddle could fall down from the original room
 	var fire; fire = room.get_obj_vnum(39001);
 	
 	if (fire != null) {
@@ -517,5 +522,27 @@
 
 	puddle.extract(true);
 	room.saveItems();
+    };
+
+    // Where a liquid spilled in this room comes to rest. A liquid can't hang
+    // in open air: it runs down the open down exits to the first room that
+    // is not air (water too -- spill_puddle mixes it in there). A closed
+    // hatch below or a mansion floor holds it (mansion floors never drop
+    // anything, as in dropObj). Returns null when an air room has no way
+    // down, or the column is deeper than 20 rooms: the liquid is lost.
+    .tmp.object.puddleLanding = function(room) {
+	if (room == null) return null;
+	var i, dir, next;
+	dir = room.doorNumber("down");
+	for (i = 0; i < 20; i = i + 1) {
+	    if (room.sector_type != .tables.sector_table.air
+		|| (room.room_flags & .tables.room_flags.mansion))
+		return room;
+	    next = room.getRoom(dir);
+	    if (next == null || next == room) return null;
+	    if (room.getExitFlags(dir) & .tables.exit_flags.closed) return room;
+	    room = next;
+	}
+	return null;
     };
 })
