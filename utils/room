@@ -174,7 +174,8 @@
 				    "ясенев|е|ого|ому|е|им|ому",
 				    "", // hardwood: keep stock
 				    "ебенов|е|ого|ому|е|им|ому");
-	    weights   = .List().add(25, 18, 15, 12, 10,  10, 6, 3, 1); // total 100
+	    // Hardwoods 25% (was 20%): hard sticks are the scarcest wood in crafting.
+	    weights   = .List().add(23, 17, 14, 11, 10,  12, 7, 4, 2); // total 100
 
 	    // Weighted random pick
 	    var total, roll, idx; total = 0; idx = 0;
