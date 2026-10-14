@@ -526,23 +526,68 @@
 
     // Where a liquid spilled in this room comes to rest. A liquid can't hang
     // in open air: it runs down the open down exits to the first room that
-    // is not air (water too -- spill_puddle mixes it in there). A closed
-    // hatch below or a mansion floor holds it (mansion floors never drop
-    // anything, as in dropObj). Returns null when an air room has no way
-    // down, or the column is deeper than 20 rooms: the liquid is lost.
+    // is not air (water too -- spill_puddle mixes it in there). Off a fall
+    // trap (rope bridge, ledge) it goes where the trap drops a falling
+    // character, like a dropped object (trapTarget). A closed hatch below or
+    // a mansion floor holds it (mansion floors never drop anything, as in
+    // dropObj). Returns null when an air room has no way down, or the fall
+    // is longer than 20 rooms: the liquid is lost.
     .tmp.object.puddleLanding = function(room) {
 	if (room == null) return null;
 	var i, dir, next;
 	dir = room.doorNumber("down");
 	for (i = 0; i < 20; i = i + 1) {
-	    if (room.sector_type != .tables.sector_table.air
-		|| (room.room_flags & .tables.room_flags.mansion))
+	    if (room.room_flags & .tables.room_flags.mansion)
 		return room;
-	    next = room.getRoom(dir);
-	    if (next == null || next == room) return null;
-	    if (room.getExitFlags(dir) & .tables.exit_flags.closed) return room;
+	    if (room.sector_type != .tables.sector_table.air) {
+		if (room.isWater())
+		    return room;
+		next = .tmp.object.trapTarget(room);
+		if (next == null) return room;
+	    } else {
+		next = room.getRoom(dir);
+		if (next == null || next == room) return null;
+		if (room.getExitFlags(dir) & .tables.exit_flags.closed) return room;
+	    }
 	    room = next;
 	}
 	return null;
+    };
+
+    // The room a fall trap in this room (props.trap: rope bridge, ledge,
+    // shaft) drops things into: the same room a falling character lands in,
+    // see .tmp.trap.work. Null when there is no trap, the target is 0 (a
+    // fatal plunge with no landing) or no such room, and when the trap would
+    // carry a thing up out of water into open air (trap.work holds an
+    // unwinged faller under water the same way).
+    .tmp.object.trapTarget = function(room) {
+	if (room == null || room.props == null) return null;
+	var trap; trap = room.props.trap;
+	if (trap == null || trap.target == null || trap.target <= 0) return null;
+	var to; to = .get_room_index(trap.target);
+	if (to == null || to == room) return null;
+	if (room.isWater() && to.sector_type == .tables.sector_table.air)
+	    return null;
+	return to;
+    };
+
+    // Where a thing dropped in a fall-trap room comes to rest: the trap's
+    // target, followed on through further trap rooms (the hut shaft 802-806
+    // is a chain), so a dropped thing and a falling character end up in the
+    // same room. Stops in an open-air room or on a mansion floor, and after
+    // 20 rooms. Null when this room's trap has no landing (trapTarget).
+    .tmp.object.trapLanding = function(room) {
+	var i, next;
+	next = .tmp.object.trapTarget(room);
+	if (next == null) return null;
+	for (i = 0; i < 20; i = i + 1) {
+	    room = next;
+	    if (room.sector_type == .tables.sector_table.air
+		|| (room.room_flags & .tables.room_flags.mansion))
+		return room;
+	    next = .tmp.object.trapTarget(room);
+	    if (next == null) return room;
+	}
+	return room;
     };
 })
