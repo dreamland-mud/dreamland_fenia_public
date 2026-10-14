@@ -50,7 +50,12 @@
 	    return;
 	}
 	
-	var wood; wood = .get_obj_index(28036).create().obj_to_room(room);
+	// A forest floor sometimes gives hardwood (Kit, 2026-10-14): hard
+	// sticks otherwise come only from salvaging hardwood items.
+	var woodVnum; woodVnum = 28036;
+	if (room.sector_type == .tables.sector_table.forest && .tmp.chance(25, ch))
+	    woodVnum = 28045;
+	var wood; wood = .get_obj_index(woodVnum).create().obj_to_room(room);
 	ch.act(._("Ты находишь %1$O4 для растопки костра."), wood);
 	ch.recho(._("%1$^C1 наход%1$nит|ят %2$O4 для растопки костра."), ch, wood); 
 	.tmp.object.applyHeat(wood, ch, null, -1, true); // guaranteed ignition
