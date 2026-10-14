@@ -7,6 +7,19 @@
     // Called from onDiveUpdate every 4 seconds. Decreases the death_ground_delay
     // counter and eventually moves the character further.
     .tmp.trap.work = function(ch, trap) {
+	// Took wing again mid-fall (fly up, a fresh fly spell): the fall stops.
+	if (ch.flying && trap.flyingSafe == true) {
+	    ch.death_ground_delay = 0;
+	    ch.trap = 0;
+	    ch.act(.mm("You catch the air and level out.",
+			"Ты ловишь воздух и выравниваешься.",
+			"Ти ловиш повітря й вирівнюєшся."));
+	    ch.recho(.mm("%1$^C1 catches the air and levels out.",
+			 "%1$^C1 лов%1$nит|ят воздух и выравнива%1$nется|ются.",
+			 "%1$^C1 лов%1$nить|лять повітря й вирівню%1$nється|ються."), ch);
+	    return;
+	}
+
 	if (trap.msgDiveSelf != "") 
 	    ch.act(trap.msgDiveSelf, ch);
 	
