@@ -294,6 +294,28 @@
     ////////////////////// OTHER ////////////////////////////////
     /////////////////////////////////////////////////////////////
     
+    // Ticks a puddle of this volume lasts (C++ create_pool): amount/15, at
+    // least 2, and 1 for a trickle under 15.
+    .tmp.object.puddleTimer = function(amount) {
+	var t; t = amount / 15;
+	if (t <= 0) return 1;
+	return .max(2, t);
+    };
+
+    // Name a puddle after its liquid in all three languages, so %O nouns
+    // (act/decay/look) localize per viewer. The prototype (vnum 75) ships "%s"
+    // placeholders; this fills them. Rerun when a merge turns the puddle into
+    // swill.
+    .tmp.object.namePuddle = function(puddle, liq) {
+	puddle.short_descr = "луж|а|и|е|у|ей|е " + liq.short_descr.ruscase(2);
+	puddle.setShort("puddle of " + liq.getShort(0), 0);
+	puddle.setShort("калюж|а|і|і|у|ею|і " + liq.getShort(2).ruscase(2), 2);
+	puddle.description = "{xЛужа " + liq.short_descr.ruscase(2) + " разлита тут.";
+	puddle.setDescr("{xA puddle of " + liq.getShort(0) + " is spilled here.", 0);
+	puddle.setDescr("{xКалюжа " + liq.getShort(2).ruscase(2) + " розлита тут.", 2);
+	puddle.name = "puddle pool лужа калюжа " + liq.name + " " + liq.short_descr.ruscase(2).stripColour();
+    };
+
     // Build a puddle object of any liquid, not attached to any room yet.
     // Callers that need the puddle to land somewhere the normal way should use
     // create_puddle; this one is for places that must bypass its room checks,
@@ -305,18 +327,10 @@
 	if (liq == null) return null;
 
 	var puddle; puddle = .get_obj_index(75).create();
-	// Fill all three language slots so %O nouns (act/decay/look) localize per
-	// viewer; the prototype (vnum 75) ships "%s" placeholders we substitute here.
-	puddle.short_descr = "луж|а|и|е|у|ей|е " + liq.short_descr.ruscase(2);
-	puddle.setShort("puddle of " + liq.getShort(0), 0);
-	puddle.setShort("калюж|а|і|і|у|ею|і " + liq.getShort(2).ruscase(2), 2);
-	puddle.description = "{xЛужа " + liq.short_descr.ruscase(2) + " разлита тут.";
-	puddle.setDescr("{xA puddle of " + liq.getShort(0) + " is spilled here.", 0);
-	puddle.setDescr("{xКалюжа " + liq.getShort(2).ruscase(2) + " розлита тут.", 2);
-	puddle.name = "puddle pool лужа калюжа " + liquid + " " + liq.short_descr.ruscase(2).stripColour();
-	puddle.timer = .number_range(1, 3);
-	puddle.value0 = amount;
-	puddle.value1 = amount;
+	.tmp.object.namePuddle(puddle, liq);
+	puddle.timer = .tmp.object.puddleTimer(amount);
+	puddle.value0 = .max(1, amount);
+	puddle.value1 = .max(1, amount);
 	puddle.value2 = liq.index;
 
 	// A poisoned drink poured out leaves a poisoned puddle -- otherwise filling a
@@ -338,9 +352,18 @@
 	return puddle;
     };
 
-    // Create a puddle of any liquid
-    // TO-DO: possibly replace with C++ implementation
+    // Create a puddle of any liquid, silently: the caller prints its own
+    // flavour (death cry blood, a flooded desert, a cuisinart burst).
     .tmp.object.create_puddle = function(liquid, room, amount, poisoned) {
+	.tmp.object.spill_puddle(liquid, room, amount, poisoned, false);
+    };
+
+    // Puddle with the C++ create_pool rules (drink_commands.cpp): a puddle
+    // landing where one already lies merges into it, two different liquids mix
+    // into swill, and the timer grows with the poured volume. verbose prints
+    // the formation / spread / mix line, which the pour command shows.
+    // Fire and heat react to the poured liquid before it merges.
+    .tmp.object.spill_puddle = function(liquid, room, amount, poisoned, verbose) {
 	if (amount == null) amount = 50; // default
 	if (room == null) return;
 	var liq;
@@ -359,7 +382,8 @@
 	var puddle; puddle = .tmp.object.make_puddle(liquid, amount, poisoned);
 	if (puddle == null) return;
 	.tmp.object.dropObj(null, puddle, false, room);
-	
+	if (!.tmp.object.valid(puddle) || puddle.in_room == null) return;
+
 	room = puddle.in_room; // puddle could fall down from the original room
 	var fire; fire = room.get_obj_vnum(39001);
 	
@@ -398,8 +422,11 @@
 	    }
 	    
 	    // Not alcohol? Let's try to extinguish the fire
-	    if (aff == null || .tmp.room.savesDispel(aff, amount, null))
+	    if (aff == null || .tmp.room.savesDispel(aff, amount, null)) {
 		room.echo(._("%1$^N1 шипит и испаряется в бушующем вокруг пламени."), liqName);
+		puddle.extract(true);
+		return;
+	    }
 	    else if (aff.duration > .max(1, amount / 100)) {
 		room.echo(._("%1$^N1 немного притушивает бушующее в этой местности пламя."), liqName);
 		aff.duration = .max(1, aff.duration - 1);
@@ -407,6 +434,58 @@
 	    }
 	    else room.affectStrip(aff.type, true);
 	}
+
+	// Merge into a puddle already lying here. obj_to_room put the new one at
+	// the head of the room, so look for any other vnum 75.
+	var pool; pool = null;
+	for (o in room.items) {
+	    if (o.vnum == 75 && o != puddle) {
+		pool = o;
+		break;
+	    }
+	}
+
+	if (pool == null) {
+	    if (verbose)
+		room.echo(._("На земле образуется лужа %1$N2."), liqName);
+	    return;
+	}
+
+	var total; total = pool.value1 + puddle.value1;
+	if (pool.value2 != liq.index) {
+	    // Two liquids mix into swill.
+	    var pooled; pooled = .Liquid(pool.value2);
+	    var swill; swill = .Liquid("swill");
+	    if (verbose)
+		room.echo(._("%1$^N1 и %2$N1 смешиваются, образуя лужу %3$N2."),
+		    liqName,
+		    .mm(pooled.getShort(0), pooled.getShort(1), pooled.getShort(2)),
+		    .mm(swill.getShort(0), swill.getShort(1), swill.getShort(2)));
+	    .tmp.object.namePuddle(pool, swill);
+	    pool.value2 = swill.index;
+	}
+	else if (verbose)
+	    room.echo(._("Лужа %1$N2 растекается еще шире."), liqName);
+
+	// A puddle can't be broader than its contents. A builder-placed puddle
+	// with no timer stays permanent.
+	pool.value0 = .max(1, total);
+	pool.value1 = .max(1, total);
+	if (pool.timer > 0)
+	    pool.timer = pool.timer + .tmp.object.puddleTimer(amount);
+
+	// Poison from either side keeps the whole pool poisoned for its lifetime.
+	if (puddle.isAffected("poison") || pool.isAffected("poison")) {
+	    pool.affectStrip("poison");
+	    var paf; paf = .Affect();
+	    paf.type = "poison";
+	    paf.duration = .max(1, pool.timer);
+	    paf.level = 10;
+	    pool.affectJoin(paf);
+	}
+
+	puddle.extract(true);
+	room.saveItems();
     };
     
     // Create a rain puddle of water (separate, faster implementation)
