@@ -44,6 +44,13 @@
 
 	ch.act(._("Ты сноровисто разбиваешь полевой лагерь."));
 	ch.recho(._("%1$^C1 сноровисто разбива%1$nет|ют полевой лагерь."), ch);
+
+	// A forest floor sometimes yields hardwood worth keeping (Kit, 2026-10-14):
+	// hard sticks otherwise come only from salvage and hardwood logs.
+	if (!ch.is_npc() && room.sector_type == .tables.sector_table.forest && .tmp.chance(25, ch)) {
+	    var hard; hard = .get_obj_index(28045).create().obj_to_char(ch);
+	    ch.act(._("Среди хвороста тебе попада%1$nется|ются %1$O1 -- ты убираешь %1$P4 в мешок."), hard);
+	}
 	
 	if (room.get_obj_vnum(39001) != null) {
 	    ch.act(._("Ты собирал{Smся{Sfась{x было разжечь костер, но кто-то его уже развел до тебя!")); 
