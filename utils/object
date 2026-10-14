@@ -530,11 +530,14 @@
     // trap (rope bridge, ledge) it goes where the trap drops a falling
     // character, like a dropped object (trapTarget). A closed hatch below or
     // a mansion floor holds it (mansion floors never drop anything, as in
-    // dropObj). Returns null when an air room has no way down, or the fall
-    // is longer than 20 rooms: the liquid is lost.
+    // dropObj). When the down exits run out in open air (a dead end, a
+    // down-exit cycle, more than 20 rooms) it lands where a falling
+    // character would (stuckLanding). Returns null when even that finds no
+    // ground or water: the liquid is lost.
     .tmp.object.puddleLanding = function(room) {
 	if (room == null) return null;
-	var i, dir, next;
+	var i, dir, next, start;
+	start = room;
 	dir = room.doorNumber("down");
 	for (i = 0; i < 20; i = i + 1) {
 	    if (room.room_flags & .tables.room_flags.mansion)
@@ -546,12 +549,13 @@
 		if (next == null) return room;
 	    } else {
 		next = room.getRoom(dir);
-		if (next == null || next == room) return null;
+		if (next == null || next == room)
+		    return .tmp.object.stuckLanding(room, start);
 		if (room.getExitFlags(dir) & .tables.exit_flags.closed) return room;
 	    }
 	    room = next;
 	}
-	return null;
+	return .tmp.object.stuckLanding(room, start);
     };
 
     // The room a fall trap in this room (props.trap: rope bridge, ledge,
@@ -589,5 +593,23 @@
 	    if (next == null) return room;
 	}
 	return room;
+    };
+
+    // Where a fall through open air ends when the down exits run out before
+    // solid ground (a dead end, a down-exit cycle like the isles maze, more
+    // than 20 rooms): where a falling character would land. The trap of the
+    // room the fall got stuck in comes first -- it is the lowest point
+    // reached, and a character falling from there lands at its target --
+    // then the trap of the room the fall started from. Only ground or water
+    // counts (a target in open air would just hang there again). Null when
+    // neither trap gives one: the caller keeps its own dead-end rule.
+    .tmp.object.stuckLanding = function(stuck, start) {
+	var to; to = .tmp.object.trapLanding(stuck);
+	if (to != null && to.sector_type != .tables.sector_table.air)
+	    return to;
+	to = .tmp.object.trapLanding(start);
+	if (to != null && to.sector_type != .tables.sector_table.air)
+	    return to;
+	return null;
     };
 })
