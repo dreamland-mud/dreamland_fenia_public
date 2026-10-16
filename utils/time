@@ -207,15 +207,21 @@
 	return .tmp.time.months(duration * 12);		
     };
     
-    // Select an appropriate timer for each weapon tier
-    // TO-DO (RUFFINA): read this from fedit weapon_tiers
-    .tmp.time.tier = function(tier) {
-	if (tier == 1) return .tmp.time.weeks(2);
-	if (tier == 2) return .tmp.time.weeks(3);
-	if (tier == 3) return .tmp.time.weeks(5);
-	// Common (5) decays like uncommon: crafts from c1 blueprints never
-	// decayed at all while 0 meant "no timer".
-	if (tier == 4 || tier == 5) return .tmp.time.weeks(10);
+    // Decay timer of an item tier (1 legendary .. 5 common), the same days
+    // random loot gets from fight/weapon_tiers.json. Common has none there,
+    // but a crafted common piece decays like uncommon.
+    .tmp.time.tierDays = function(tier) {
+	var t; t = .config("fight/weapon_tiers");
+	if (tier < 1 || tier > t.size()) return 0;
+	var row; row = t[tier - 1];
+	if (row.days != null) return row.days;
+	if (row.weeks != null) return row.weeks * 7;
 	return 0;
+    };
+
+    .tmp.time.tier = function(tier) {
+	var d; d = .tmp.time.tierDays(tier);
+	if (d <= 0 && tier == 5) d = .tmp.time.tierDays(4);
+	return .tmp.time.days(d);
     };
 })
