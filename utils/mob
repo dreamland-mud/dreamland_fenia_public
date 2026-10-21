@@ -1443,7 +1443,10 @@
 
 	weapon.unequip();
 	var dropped; dropped = ch.can_drop_obj(weapon);
-	if (dropped) .tmp.object.dropObj(null, weapon, false, room);
+	if (dropped) {
+	    .tmp.brain.markKnocked(weapon, ch);
+	    .tmp.object.dropObj(null, weapon, false, room);
+	}
 
 	if (dropped) {
 	    ch.act(._("{BСудорога разжимает твою ладонь, и %1$O1 со звоном пада%1$nет|ют %2$s!{x"),
