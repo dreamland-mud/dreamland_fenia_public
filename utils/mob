@@ -1408,7 +1408,8 @@
 
 	// 3: and it breaks concentration on the fight, which is the whole reason
 	// warlocks and witches carry it -- the help article promises exactly this.
-	if (ch.fighting != null) {
+	// Legends and bosses hold their focus: a scream chain must not lock them out.
+	if (ch.fighting != null && !.tmp.mob.isStrongTier(ch, 2)) {
 	    ch.act(._("Дикий вопль заставляет тебя отвлечься от сражения!"));
 	    .tmp.player.fightspamState(ch, null, ._("Дикий вопль заставляет %1$C4 отвлечься от сражения!"), ch, null);
 	    ch.stop_fighting(true);
@@ -1423,6 +1424,8 @@
     .tmp.mob.shockDropWeapon = function(ch) {
 	var room; room = ch.in_room;
 	if (room == null) return false;
+	// A cramp is a random proc: legends and bosses keep their grip.
+	if (.tmp.mob.isStrongTier(ch, 2)) return false;
 
 	var weapon; weapon = ch.get_eq_char("wield");
 	if (!.tmp.object.valid(weapon)) return false;
