@@ -317,13 +317,14 @@
 	// a fountain (vnum 75) whose value3 is its max-people count (Item::furnitureMaxPeople),
 	// never read as poison by drink/fill, so a value3 stamp would be a fake fix. The Fenia
 	// drink and fill overrides read isAffected("poison") off the source. Mirrors the
-	// fountain-poison precedent (midgaard obj 3135 q5379). Level is a nominal marker --
-	// the drinker's poison strength is recomputed from the sip amount by the drink override.
+	// fountain-poison precedent (midgaard obj 3135 q5379). Level 0 on purpose: the drink
+	// override reads a positive poison level as the poisoner's dose, while 0 falls back to
+	// a sip-sized dose -- a puddle does not remember who poisoned the drink.
 	if (poisoned == true) {
 	    var af; af = .Affect();
 	    af.type = "poison";
 	    af.duration = puddle.timer;
-	    af.level = 10;
+	    af.level = 0;
 	    puddle.affectJoin(af);
 	}
 
@@ -516,7 +517,7 @@
 	    var paf; paf = .Affect();
 	    paf.type = "poison";
 	    paf.duration = .max(1, pool.timer);
-	    paf.level = 10;
+	    paf.level = 0;
 	    pool.affectJoin(paf);
 	}
 
