@@ -711,6 +711,19 @@
 		|| (ch.evil && vict.good));
     };
     
+    // obj.affected hands out copies, so the source goes on via affectReplace
+    // (a quiet strip + re-add: no cooling message, glow bit carried over).
+    .tmp.mob.stampHeatSource = function(obj, src) {
+	if (!.tmp.object.valid(obj) || !obj.isAffected("incandescent")) return;
+	for (a in obj.affected) {
+	    if (a.type == "incandescent") {
+		a.source = src;
+		obj.affectReplace(a);
+		return;
+	    }
+	}
+    };
+
     // Mob attempts to remove and drop burning/heated item, gets damage
     // Visualize removal/dropping/damage, return damage
     // Apply damage outside if apply_damage is false
@@ -769,7 +782,11 @@
 	}
 	
 	if (dam > 0 && apply_damage) {
-	    if (iaff != null && iaff.source != null && !iaff.source.is_safe(ch))
+	    // The heater is the attacker only while still in the fight's room
+	    // and not on ch's side: no credit for gear left glowing behind.
+	    var src; src = iaff.source;
+	    if (src != null && .tmp.mob.valid(src) && src.in_room == ch.in_room
+		&& !src.is_same_group(ch) && !src.is_safe(ch))
 		iaff.damage(ch, dam, iaff.type, "fire", "spell"); // PK damage if possible
 	    else ch.rawdamage(ch, dam, "fire", "self");
 	}
@@ -781,6 +798,13 @@
     // heat items unless heat_items is false
     // Now depends on fire power, not fire damage dealt
     .tmp.mob.effectFire = function(ch, fire_power, heat_items, apply_damage) {
+	.tmp.mob.effectFireBy(ch, null, fire_power, heat_items, apply_damage);
+    };
+
+    // Same as effectFire, but src (the attacker, may be null) is stamped as the
+    // source of every item it heats, so the burn ticks that follow are charged
+    // to src (kill credit, quests) instead of to ch itself.
+    .tmp.mob.effectFireBy = function(ch, src, fire_power, heat_items, apply_damage) {
 	if (!.tmp.mob.valid(ch)) return;
 	var room; room = ch.in_room;
 	// What the caller asked for, kept for decisions that must not drift with
@@ -815,6 +839,9 @@
 	    var wasHot; wasHot = obj.isAffected("incandescent");
 	    if (!.tmp.object.applyHeat(obj, null, null, fire_power, false))
 		continue; // didn't affect item? let's try another one
+
+	    if (src != null && src != ch)
+		.tmp.mob.stampHeatSource(obj, src);
 
 	    if (!.tmp.mob.valid(ch)) return; // double-check if ch is still alive
 
