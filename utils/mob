@@ -898,7 +898,7 @@
 	    if (weapon_contact)
 		af.duration     = 0; // gone at the next tick
 	    else
-		af.duration     = fire_power/2 + 1;
+		af.duration     = .number_range(0, 3); // random so the blindness can't be timed
 	    af.bitvector("affect_flags", "blind");		
 	    af.location         = .tables.apply_flags.hitroll;
 	    af.modifier         = -1 * .max(4, fire_power + 1);
