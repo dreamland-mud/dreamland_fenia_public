@@ -801,10 +801,10 @@
 	.tmp.mob.effectFireBy(ch, null, fire_power, heat_items, apply_damage);
     };
 
-    // Same as effectFire, but src (the attacker, may be null) is stamped as the
-    // source of every item it heats, so the burn ticks that follow are charged
-    // to src (kill credit, quests) instead of to ch itself.
-    .tmp.mob.effectFireBy = function(ch, src, fire_power, heat_items, apply_damage) {
+    // Same as effectFire, but attacker (may be null) is stamped as the source
+    // of every item it heats, so the burn ticks that follow are charged to the
+    // attacker (kill credit, quests) instead of to ch itself.
+    .tmp.mob.effectFireBy = function(ch, attacker, fire_power, heat_items, apply_damage) {
 	if (!.tmp.mob.valid(ch)) return;
 	var room; room = ch.in_room;
 	// What the caller asked for, kept for decisions that must not drift with
@@ -840,8 +840,8 @@
 	    if (!.tmp.object.applyHeat(obj, null, null, fire_power, false))
 		continue; // didn't affect item? let's try another one
 
-	    if (src != null && src != ch)
-		.tmp.mob.stampHeatSource(obj, src);
+	    if (attacker != null && attacker != ch)
+		.tmp.mob.stampHeatSource(obj, attacker);
 
 	    if (!.tmp.mob.valid(ch)) return; // double-check if ch is still alive
 
