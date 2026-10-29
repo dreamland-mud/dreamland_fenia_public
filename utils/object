@@ -218,7 +218,7 @@
 	var class; class = .tmp.object.getWeaponClass(obj);
 	return (class != "" &&
 		(class == "axe" || class == "spear" || class == "polearm" ||
-		 class == "lance" || class == "arrow"));
+		 class == "lance" || class == "arrow" || class == "staff"));
     };
 
     /////////////////////////////////////////////////////////////

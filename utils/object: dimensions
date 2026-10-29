@@ -190,6 +190,12 @@
 		    size.thickness = 40;
 		    size.quantity  = 1;
 	    }
+	    if (obj.value0 == .tables.weapon_class.staff) {
+		    size.length    = 800; 
+		    size.width     = 30;
+		    size.thickness = 30;
+		    size.quantity  = 1;
+	    }
 	    if (obj.value0 == .tables.weapon_class.polearm) {
 		    size.length    = 1200; 
 		    size.width     = 40;
