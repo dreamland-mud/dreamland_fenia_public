@@ -727,7 +727,9 @@
     // Mob attempts to remove and drop burning/heated item, gets damage
     // Visualize removal/dropping/damage, return damage
     // Apply damage outside if apply_damage is false
-    .tmp.mob.burnByItem = function(ch, obj, apply_damage) {
+    // attacker (may be null): who set it alight, when the item carries no
+    // stamped heat source of its own (open flame, a burn inside applyHeat)
+    .tmp.mob.burnByItem = function(ch, obj, apply_damage, attacker) {
 	if (!.tmp.mob.valid(ch) || !.tmp.object.valid(obj)) return 0;
 	if (ch.isImmune("fire", "")) return 0;
 	if (.tmp.player.ghost(ch) || .tmp.player.protected(ch)) return 0;
@@ -785,6 +787,14 @@
 	    // The heater is the attacker only while still in the fight's room
 	    // and not on ch's side: no credit for gear left glowing behind.
 	    var src; src = iaff.source;
+	    if (src == null && attacker != null) {
+		// iaff is a copy (or, for open flame, a blank): sourcing it here
+		// only routes this one burn, the item itself stays untouched.
+		src = attacker;
+		if (!obj.isAffected("incandescent"))
+		    iaff.type = "incandescent";
+		iaff.source = attacker;
+	    }
 	    if (src != null && .tmp.mob.valid(src) && src.in_room == ch.in_room
 		&& !src.is_same_group(ch) && !src.is_safe(ch))
 		iaff.damage(ch, dam, iaff.type, "fire", "spell"); // PK damage if possible
@@ -837,11 +847,19 @@
 	    // Chance to burn anything depends on fire_power
 	    if (.tmp.chance(to_save, ch)) break;
 	    var wasHot; wasHot = obj.isAffected("incandescent");
-	    if (!.tmp.object.applyHeat(obj, null, null, fire_power, false))
-		continue; // didn't affect item? let's try another one
-
+	    // applyHeat reads the attacker off obj.heat_by: it stamps the gear
+	    // and charges the very first burn to them.
 	    if (attacker != null && attacker != ch)
-		.tmp.mob.stampHeatSource(obj, attacker);
+		obj.heat_by = attacker;
+	    // Caught so heat_by is always cleared: a stale one would credit
+	    // whoever heated this item last for some unrelated fire.
+	    var heated; heated = false;
+	    try { heated = .tmp.object.applyHeat(obj, null, null, fire_power, false); }
+	    catch (e);
+	    if (.tmp.object.valid(obj))
+		obj.heat_by = null;
+	    if (!heated)
+		continue; // didn't affect item? let's try another one
 
 	    if (!.tmp.mob.valid(ch)) return; // double-check if ch is still alive
 
