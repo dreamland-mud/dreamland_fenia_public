@@ -24,6 +24,14 @@
 	return true;
     };
 	
+    // Who a burning room's damage is charged to: its arsonist, never an
+    // immortal testing fires. null when nobody set it.
+    .tmp.room.heatSource = function(af) {
+	var src; src = af.source;
+	if (src != null && src.is_immortal()) return null;
+	return src;
+    };
+
     // source: the player who set the blaze, or null. Only a player is recorded,
     // so a mob's firestorm never pits mobs against each other.
     .tmp.room.burn = function(room, level, duration, source) {
