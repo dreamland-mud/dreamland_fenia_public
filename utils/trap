@@ -99,13 +99,21 @@
 
 	    } else if (trap.fatal == true) {
 		// A drop nothing survives -- a bottomless chasm. The victim is
-		// carried down first and dies THERE, so the corpse lies at the
-		// bottom instead of on the ledge they slipped from. == true
-		// because an unset prop reads as NONE, not false.
+		// carried down first, so the room sees the fall. == true because
+		// an unset prop reads as NONE, not false.
 		if (ch.is_immortal())
 		    ch.act(._("Будь ты смертным, удар о землю стал бы последним."), ch);
-		else
+		else {
+		    // The bottom is a sealed room: a player's corpse goes to their
+		    // altar, where they respawn, or the loot is lost for good.
+		    // Same rule as the deathtrap corpseToAltar prop.
+		    if (!ch.is_npc()) {
+			var altarRoom; altarRoom = .get_room_index(ch.altar);
+			if (altarRoom != null)
+			    ch.transfer_silent(altarRoom);
+		    }
 		    ch.raw_kill(-1, ch, "room");
+		}
 
 	    } else if (trap.dmgPerLevel != null) {
 		// Fall damage on the final impact only -- a "level die", level
