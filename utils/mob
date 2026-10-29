@@ -791,7 +791,7 @@
 		// iaff is a copy (or, for open flame, a blank): sourcing it here
 		// only routes this one burn, the item itself stays untouched.
 		src = attacker;
-		if (!obj.isAffected("incandescent"))
+		if (iaff.type == "none")
 		    iaff.type = "incandescent";
 		iaff.source = attacker;
 	    }
@@ -847,21 +847,16 @@
 	    // Chance to burn anything depends on fire_power
 	    if (.tmp.chance(to_save, ch)) break;
 	    var wasHot; wasHot = obj.isAffected("incandescent");
-	    // applyHeat reads the attacker off obj.heat_by: it stamps the gear
-	    // and charges the very first burn to them.
+	    // applyHeat takes the attacker off obj.heat_by (and clears it): it
+	    // stamps the gear and charges the very first burn to them.
 	    if (attacker != null && attacker != ch)
 		obj.heat_by = attacker;
-	    // Caught so heat_by is always cleared: a stale one would credit
-	    // whoever heated this item last for some unrelated fire.
-	    var heated; heated = false;
-	    try { heated = .tmp.object.applyHeat(obj, null, null, fire_power, false); }
-	    catch (e);
-	    if (.tmp.object.valid(obj))
-		obj.heat_by = null;
+	    var heated; heated = .tmp.object.applyHeat(obj, null, null, fire_power, false);
+	    // A credited burn can kill ch without throwing, and a dead player
+	    // stands at the altar still valid: stop before burning them again.
+	    if (!.tmp.mob.valid(ch) || ch.in_room != room) return;
 	    if (!heated)
 		continue; // didn't affect item? let's try another one
-
-	    if (!.tmp.mob.valid(ch)) return; // double-check if ch is still alive
 
 	    // applyHeat runs quiet here on purpose -- this is ambient heat, and
 	    // its verbose lines are written for someone deliberately heating a
