@@ -146,84 +146,93 @@
     //////////////////////  FORESTS / TREES  ///////////////////////////////
     ////////////////////////////////////////////////////////////////////////
 
+    // A carpentry log of a random wood, weighted by rarity: softwoods common,
+    // hardwoods rare. hardOnly picks among the hardwoods alone (Old Ent).
+    .tmp.room.makeLog = function(hardOnly) {
+	// Parallel lists: base vnum (hardness tier), material name, RU/UA adjective, weight.
+	// Empty adj means keep the prototype's (trilingual) short_descr. EN uses the
+	// material name attributively (materials.at(idx) + " log"). Softwoods (28037)
+	// common, hardwoods (28038) rare.
+	var vnums, materials, adjs, adjsUa, weights;
+	vnums     = .List().add(28037, 28037, 28037, 28037, 28037,  28038, 28038, 28038, 28038);
+	materials = .List().add("aspen", "yew", "redwood", "bamboo", "softwood",
+				"oak", "ashwood", "hardwood", "ebony");
+	adjs      = .List().add("осинов|ое|ого|ому|ое|ым|ом",
+				"тисов|ое|ого|ому|ое|ым|ом",
+				"", // redwood uses a genitive phrase, not adjective
+				"бамбуков|ое|ого|ому|ое|ым|ом",
+				"", // softwood: keep stock short_descr
+				"дубов|ое|ого|ому|ое|ым|ом",
+				"ясенев|ое|ого|ому|ое|ым|ом",
+				"", // hardwood: keep stock "бревно из твердого дерева"
+				"эбенов|ое|ого|ому|ое|ым|ом");
+	adjsUa    = .List().add("осиков|е|ого|ому|е|им|ому",
+				"тисов|е|ого|ому|е|им|ому",
+				"", // redwood: genitive phrase below
+				"бамбуков|е|ого|ому|е|им|ому",
+				"", // softwood: keep stock
+				"дубов|е|ого|ому|е|им|ому",
+				"ясенев|е|ого|ому|е|им|ому",
+				"", // hardwood: keep stock
+				"ебенов|е|ого|ому|е|им|ому");
+	// Hardwoods 25% (was 20%): hard sticks are the scarcest wood in crafting.
+	weights   = .List().add(23, 17, 14, 11, 10,  12, 7, 4, 2); // total 100
+	if (hardOnly) // hardwoods only: zero out the softwood weights
+	    weights = .List().add(0, 0, 0, 0, 0,  12, 7, 4, 2);
+
+	// Weighted random pick
+	var total, roll, idx; total = 0; idx = 0;
+	for (w in weights) total = total + w;
+	roll = .number_range(1, total);
+
+	for (w in weights) {
+	    if (roll <= w) break;
+	    roll = roll - w;
+	    idx = idx + 1;
+	}
+
+	var product; product = .get_obj_index(vnums.at(idx)).create();
+	product.material = .Material(materials.at(idx));
+
+	// Rename based on picked material. Fill all three language slots: the plain
+	// short_descr = setter writes only RU, which left EN/UA on the prototype's
+	// generic "log". EN uses the material name attributively.
+	var adj; adj = adjs.at(idx);
+	if (materials.at(idx) == "redwood") {
+	    product.setShort("redwood log", 0);
+	    product.setShort("бревн|о|а|у|о|ом|е из красного дерева", 1);
+	    product.setShort("полін|о|а|у|о|ом|і з червоного дерева", 2);
+	    product.keyword = "log redwood бревно поліно красное дерево червоне";
+	}
+	else if (adj != "") {
+	    var parts; parts = adj.split("|");
+	    product.setShort(materials.at(idx) + " log", 0);
+	    product.setShort(adj + " бревн|о|а|у|о|ом|е", 1);
+	    product.setShort(adjsUa.at(idx) + " полін|о|а|у|о|ом|і", 2);
+	    product.keyword = "log " + materials.at(idx) + " бревно поліно "
+		+ parts.at(0) + " " + parts.at(0) + parts.at(1);
+	}
+	// Softwood/hardwood generic: keep stock short_descr & keyword (trilingual proto).
+
+	product.timer = .tmp.time.months(1); // timer to prevent hoarding
+	return product;
+    };
+
     // Drop a log or firewood in a room: lumberjack, hurricane etc.
-    // Picks a wood material weighted by rarity; softwoods common, hardwoods rare.
     .tmp.room.dropTree = function(room) {
 	var product;
 	if (.chance(1)) {
 	    product = .get_obj_index(28036).create(); // firewood (rotten tree)
+	    product.timer = .tmp.time.months(1); // timer to prevent hoarding
 	    room.echo(._("Сгнившее дерево падает %1$s, превращаясь в %2$O4!"),
 		.tmp.room.dropWhere(room), product);
 	}
 	else {
-	    // Parallel lists: base vnum (hardness tier), material name, RU/UA adjective, weight.
-	    // Empty adj means keep the prototype's (trilingual) short_descr. EN uses the
-	    // material name attributively (materials.at(idx) + " log"). Softwoods (28037)
-	    // common, hardwoods (28038) rare.
-	    var vnums, materials, adjs, adjsUa, weights;
-	    vnums     = .List().add(28037, 28037, 28037, 28037, 28037,  28038, 28038, 28038, 28038);
-	    materials = .List().add("aspen", "yew", "redwood", "bamboo", "softwood",
-				    "oak", "ashwood", "hardwood", "ebony");
-	    adjs      = .List().add("осинов|ое|ого|ому|ое|ым|ом",
-				    "тисов|ое|ого|ому|ое|ым|ом",
-				    "", // redwood uses a genitive phrase, not adjective
-				    "бамбуков|ое|ого|ому|ое|ым|ом",
-				    "", // softwood: keep stock short_descr
-				    "дубов|ое|ого|ому|ое|ым|ом",
-				    "ясенев|ое|ого|ому|ое|ым|ом",
-				    "", // hardwood: keep stock "бревно из твердого дерева"
-				    "эбенов|ое|ого|ому|ое|ым|ом");
-	    adjsUa    = .List().add("осиков|е|ого|ому|е|им|ому",
-				    "тисов|е|ого|ому|е|им|ому",
-				    "", // redwood: genitive phrase below
-				    "бамбуков|е|ого|ому|е|им|ому",
-				    "", // softwood: keep stock
-				    "дубов|е|ого|ому|е|им|ому",
-				    "ясенев|е|ого|ому|е|им|ому",
-				    "", // hardwood: keep stock
-				    "ебенов|е|ого|ому|е|им|ому");
-	    // Hardwoods 25% (was 20%): hard sticks are the scarcest wood in crafting.
-	    weights   = .List().add(23, 17, 14, 11, 10,  12, 7, 4, 2); // total 100
-
-	    // Weighted random pick
-	    var total, roll, idx; total = 0; idx = 0;
-	    for (w in weights) total = total + w;
-	    roll = .number_range(1, total);
-	    
-	    for (w in weights) {
-		if (roll <= w) break;
-		roll = roll - w;
-		idx = idx + 1;
-	    }
-
-	    product = .get_obj_index(vnums.at(idx)).create();
-	    product.material = .Material(materials.at(idx));
-
-	    // Rename based on picked material. Fill all three language slots: the plain
-	    // short_descr = setter writes only RU, which left EN/UA on the prototype's
-	    // generic "log". EN uses the material name attributively.
-	    var adj; adj = adjs.at(idx);
-	    if (materials.at(idx) == "redwood") {
-		product.setShort("redwood log", 0);
-		product.setShort("бревн|о|а|у|о|ом|е из красного дерева", 1);
-		product.setShort("полін|о|а|у|о|ом|і з червоного дерева", 2);
-		product.keyword = "log redwood бревно поліно красное дерево червоне";
-	    }
-	    else if (adj != "") {
-		var parts; parts = adj.split("|");
-		product.setShort(materials.at(idx) + " log", 0);
-		product.setShort(adj + " бревн|о|а|у|о|ом|е", 1);
-		product.setShort(adjsUa.at(idx) + " полін|о|а|у|о|ом|і", 2);
-		product.keyword = "log " + materials.at(idx) + " бревно поліно "
-		    + parts.at(0) + " " + parts.at(0) + parts.at(1);
-	    }
-	    // Softwood/hardwood generic: keep stock short_descr & keyword (trilingual proto).
-
+	    product = .tmp.room.makeLog(false);
 	    room.echo(._("Дерево с грохотом падает %1$s, превращаясь в %2$O4!"),
 		.tmp.room.dropWhere(room), product);
 	}
 
-	product.timer = .tmp.time.months(1); // timer to prevent hoarding
 	.tmp.object.dropObj(null, product, false, room); // drop the log
     };
 
