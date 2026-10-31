@@ -127,7 +127,8 @@
 		return 44;
 	    return 100;
 	}
-	if (obj.item_type != .tables.item_table.armor && obj.item_type != .tables.item_table.clothing)
+	if (obj.item_type != .tables.item_table.armor && obj.item_type != .tables.item_table.clothing
+	    && obj.item_type != .tables.item_table.jewelry)
 	    return 100;
 	if (obj.wear_flags & W.wear_shield)
 	    return 110;
