@@ -53,7 +53,14 @@
 	dmg = 100 - obj.condition;
 	if (dmg < 0)
 	    dmg = 0;
-	return .max(100, .max(1, obj.level) * k * dmg / 100);
+	var price; price = .max(100, .max(1, obj.level) * k * dmg / 100);
+	// Precious metal costs a jeweler far more than iron costs a smith.
+	if (obj.item_type == .tables.item_table.jewelry || obj.item_type == .tables.item_table.treasure) {
+	    var mat; mat = obj.pIndexData.material;
+	    if (mat == "gold" || mat == "silver" || mat == "platinum" || mat == "mithril")
+		price = price * 3 / 2;
+	}
+	return price;
     };
     
     /////////////////////////////////////////////////////////////
@@ -225,23 +232,22 @@
     ////////////////// COST, SIZE, AC ///////////////////
     /////////////////////////////////////////////////////////////
 	
-    // Adjust AC gain based on the item size
+    // What equipping multiplies an armor's values by. Mirrors <armorCoef> in
+    // dreamland_world/wearlocations, which Fenia has no accessor for: best slot wins.
     .tmp.object.armorCoef = function(obj) {
 	if (!.tmp.object.valid(obj)) return 1;
-	var size; size = .tmp.object.dimensions(obj);
-	
-	var volume; 
-	volume = size.length * size.width * size.thickness * size.quantity;
-	volume = .max(1, volume / 1000); // volume in cubic centimeters
-	
-	return .max(1, volume / 300); // more matter = more AC
+	var f, W; f = obj.wear_flags; W = .tables.wear_flags;
+	if (f & W.wear_body) return 4;
+	if (f & (W.wear_shield | W.wear_horse)) return 3;
+	if (f & (W.wear_head | W.wear_arms | W.wear_legs)) return 2;
+	return 1;
     };
 	
     .tmp.object.getTrueAC = function(obj) {
 	if (!.tmp.object.valid(obj)) return 0;
 	var ac, armorCoef; ac = .Map();
 	armorCoef = .tmp.object.armorCoef(obj);
-	ac.value0 = 0; ac.value2 = 0; ac.value3 = 0; ac.value4 = 0;
+	ac.value0 = 0; ac.value1 = 0; ac.value2 = 0; ac.value3 = 0;
 	if (obj.item_type & .tables.item_table.armor) {
 	    ac.value0 = obj.value0 * armorCoef;
 	    ac.value1 = obj.value1 * armorCoef;

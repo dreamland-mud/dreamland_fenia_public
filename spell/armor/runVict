@@ -32,7 +32,7 @@
     af.level     = level;
     af.duration  = 7 + level / 6;
     af.location  = .tables.apply_flags.ac;
-    af.modifier  = -1 * level / 3;
+    af.modifier  = -1 * level * 5 / 12;
     vict.affectAdd(af);
     af.location = .tables.apply_flags.learned;
     af.where = .tables.affwhere_flags.skill_groups;

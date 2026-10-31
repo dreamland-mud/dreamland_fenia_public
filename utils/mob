@@ -637,6 +637,13 @@
 		 ch.pIndexData.behaviors.has("sage")));
     };
 
+    // A jeweler is a shopkeeper whose prototype props carry a "jeweler" key.
+    .tmp.mob.isJeweler = function(ch) {
+	if (!ch.is_npc()) return false;
+	var props; props = ch.pIndexData.props;
+	return props != null && props.jeweler != null;
+    };
+
     // determine whether any ch can rescue victim in battle
     .tmp.mob.canRescue = function(ch, victim, verbose) {
 	var msg; msg = "";
