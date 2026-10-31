@@ -637,6 +637,14 @@
 		 ch.pIndexData.behaviors.has("sage")));
     };
 
+    // Jewelers are plain shopkeepers with no behavior to mark them: Tamara, the
+    // Mirror ghoul, the aarakocra stall, the Bazaar jeweller and Satori.
+    .tmp.mob.isJeweler = function(ch) {
+	if (!ch.is_npc()) return false;
+	var v; v = ch.pIndexData.vnum;
+	return v == 3009 || v == 5390 || v == 5602 || v == 14225 || v == 16076;
+    };
+
     // determine whether any ch can rescue victim in battle
     .tmp.mob.canRescue = function(ch, victim, verbose) {
 	var msg; msg = "";

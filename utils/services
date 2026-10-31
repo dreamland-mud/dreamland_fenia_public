@@ -44,7 +44,7 @@
 	var servicers; servicers = .List();
 	var anyServicer; anyServicer = false;
 	for (mob in client.in_room.ppl.sub(client)) {
-	    if (.tmp.mob.isServicer(mob)) {
+	    if (.tmp.mob.isServicer(mob) || .tmp.mob.isJeweler(mob)) {
 		anyServicer = true;
 		if (.tmp.mob.canServe(mob, client))
 		    servicers.push_back(mob);
@@ -121,17 +121,31 @@
 	return true;
     };
     
+    // Whether this servicer's trade covers obj: enchanters mend anything, jewelers
+    // jewelry and treasure, smiths armor and weapons.
+    .tmp.mob.canRepair = function(mob, obj) {
+	if (mob.pIndexData.behaviors.has("enchanter")) return true;
+	var t; t = obj.item_type;
+	if (.tmp.mob.isJeweler(mob)
+	    && (t == .tables.item_table.jewelry || t == .tables.item_table.treasure))
+	    return true;
+	if (mob.pIndexData.behaviors.has("blacksmith"))
+	    return t == .tables.item_table.armor || t == .tables.item_table.weapon;
+	return false;
+    };
+
     // Compose a list of all services a mob can perform
     .tmp.mob.getServices = function(mob) {
 	var behaviors; behaviors = .List();
 	behaviors = mob.pIndexData.behaviors;
 	// Sanity checks: mob is dead or doesn't have [service] behaviors
 	// TO-DO: refactor this to identify service behaviors faster
-	if (!.tmp.mob.valid(mob) || behaviors.size() <= 0 ||
+	var jeweler; jeweler = .tmp.mob.valid(mob) && .tmp.mob.isJeweler(mob);
+	if (!jeweler && (!.tmp.mob.valid(mob) || behaviors.size() <= 0 ||
 	    (!behaviors.has("healer") && 
 	     !behaviors.has("blacksmith") &&
 	     !behaviors.has("sage") &&
-	     !behaviors.has("enchanter")))
+	     !behaviors.has("enchanter"))))
 	    return null;
 
 	var mob_services, all_services, service;
@@ -140,7 +154,11 @@
 	
 	for (s in all_services.keys) {
 	    for (b in behaviors) {
-		if (all_services[s].behaviors.contains(b)) {
+		// A jeweler's one service, repair, comes from no behavior of its own.
+		var offered; offered = all_services[s].behaviors.contains(b);
+		if (jeweler && all_services[s].name == "repair")
+		    offered = true;
+		if (offered) {
 		    service = .Map();
 		    service.name = all_services[s].name;
 		    service.nameRus = all_services[s].nameRus;
@@ -155,6 +173,7 @@
 		    service.no_target = false;
 		    mob_services.push_back(service);
 		    service = null;
+		    if (jeweler) break;
 		}
 	    }
 	}
@@ -455,11 +474,20 @@
 		msg = msg + viewer.print(._("{/Или надень, или избавь эту вещь от проклятия."));
 	    }
 	    else if (service.name == "repair") {
-		if (service.object.item_type != .tables.item_table.armor &&
-		    service.object.item_type != .tables.item_table.weapon &&
-		    !mob.pIndexData.behaviors.has("enchanter")) {
-		    msg = msg + viewer.print(._("Я могу ремонтировать только броню и оружие."));
-		    msg = msg + viewer.print(._("{/Починить {1%1$O4{2 можно только магией у чародеев."), service.object);
+		if (!.tmp.mob.canRepair(mob, service.object)) {
+		    var itype; itype = service.object.item_type;
+		    if (.tmp.mob.isJeweler(mob) && !mob.pIndexData.behaviors.has("blacksmith")) {
+			msg = msg + viewer.print(._("Я могу ремонтировать только украшения и драгоценности."));
+			msg = msg + viewer.print(._("{/Починить {1%1$O4{2 можно у кузнецов или магией у чародеев."), service.object);
+		    }
+		    else if (itype == .tables.item_table.jewelry || itype == .tables.item_table.treasure) {
+			msg = msg + viewer.print(._("Я могу ремонтировать только броню и оружие."));
+			msg = msg + viewer.print(._("{/Починить {1%1$O4{2 можно у ювелиров или магией у чародеев."), service.object);
+		    }
+		    else {
+			msg = msg + viewer.print(._("Я могу ремонтировать только броню и оружие."));
+			msg = msg + viewer.print(._("{/Починить {1%1$O4{2 можно только магией у чародеев."), service.object);
+		    }
 		}
 		else if (service.object.condition >= 100) // > 100 is legacy smithing overflow
 		    msg = msg + viewer.print(._("{1%1$^O1{2 не нужда%1$nется|ются в %2$N6."),
