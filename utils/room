@@ -16,10 +16,12 @@
 	    || room.sector_type == .tables.sector_table.water_noswim)
 	    return false; // no fire if water or air
 	    
+	// No fire when wide open, unless a builder set the room ablaze for good.
 	if (room.isOutside() && !room.isAffected("heat") &&
 	    (room.sector_type == .tables.sector_table.desert
-	     || room.sector_type == .tables.sector_table.field))
-	     return false; // no fire when wide open
+	     || room.sector_type == .tables.sector_table.field)
+	    && !room.hasBehavior("conflagration"))
+	     return false;
 	
 	return true;
     };
