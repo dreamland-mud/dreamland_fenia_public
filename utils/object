@@ -275,6 +275,8 @@
     /////////////////////////////////////////////////////////////
     
     // Chance to dispel object affects
+    // Also rolls sleep for awakening. Permanent affects stay dispellable here,
+    // unlike the C++ dispel: a cursed item must still take remove curse.
     .tmp.object.savesDispel = function(dispel_level, affect_level, duration) {
 	var save;
 	// much harder to dispel permanent affects
@@ -282,9 +284,17 @@
 	// harder to dispel "native" mob affects
 	if (duration == -1) affect_level = affect_level + 5;
 	
-	// each level diff adds/subtracts 5% chance to dispel
-	save = 50 + (affect_level - dispel_level) * 5;
-	save = .urange(5, save, 95);
+	// Saves model 1: the C++ dispel edges (fight/saves.json "dispel").
+	// Legacy: each level diff adds/subtracts 5% chance to dispel.
+	var d; d = .tmp.spell.savesDispelKnobs();
+	if (d != null) {
+	    save = d.base + (affect_level - dispel_level) * d.per_level;
+	    save = .urange(d.min, save, d.max);
+	}
+	else {
+	    save = 50 + (affect_level - dispel_level) * 5;
+	    save = .urange(5, save, 95);
+	}
 
 	return .chance(save);
     };
