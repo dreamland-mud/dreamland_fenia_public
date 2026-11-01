@@ -145,9 +145,10 @@
     ////////////////////// BASIC HELPERS ////////////////////////
     /////////////////////////////////////////////////////////////
     
-    // Basic helper to check if the obj "exists"
+    // Basic helper to check if the obj "exists". An object queued by
+    // .tmp.system.trueExtract is already gone for gameplay purposes.
     .tmp.object.valid = function(obj) {
-	return (obj != null && !obj.dead && obj.condition > 0);
+	return (obj != null && !obj.dead && obj.condition > 0 && obj.extractPending != true);
     };
     
     // Determine if object has a specific wearloc (from wear_loc_flags)
