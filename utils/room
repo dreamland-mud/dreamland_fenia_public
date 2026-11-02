@@ -396,9 +396,17 @@
 	if (affect.duration < 0) return true; // can't dispel permanent affects
 
 	var save;
-	// each level diff adds/subtracts 5% chance to dispel
-	save = 50 + (affect.level - dispel_level) * 5;
-	save = .urange(5, save, 95);
+	// Saves model 1: the C++ dispel edges (fight/saves.json "dispel").
+	// Legacy: each level diff adds/subtracts 5% chance to dispel.
+	var d; d = .tmp.spell.savesDispelKnobs();
+	if (d != null) {
+	    save = d.base + (affect.level - dispel_level) * d.per_level;
+	    save = .urange(d.min, save, d.max);
+	}
+	else {
+	    save = 50 + (affect.level - dispel_level) * 5;
+	    save = .urange(5, save, 95);
+	}
 	
 	// ch is the one ATTEMPTING the dispel, so their luck rolls the dispel
 	// chance -- and the result has to be inverted, because this function

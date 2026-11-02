@@ -1153,12 +1153,14 @@
 	    // blade is power 2 and never will.
 	    //
 	    // The second roll is at the SAME level as the first, deliberately.
-	    // saves_spell is `40 + (mlevel - level) * 4 - ...`, so raising the
-	    // attack level makes the save EASIER to fail: an earlier draft used
-	    // power * 20, which pinned the roll to its 5% floor and passed 95%
-	    // of everyone who failed the first one -- a rubber stamp wearing the
-	    // word "gate". Same level means better saves protect you twice, which
-	    // is what "failed by a wide margin" was asking for.
+	    // Every level of attack over the victim's level takes a fixed few
+	    // percent off the save (4 on the legacy roll, per_level in
+	    // fight/saves.json on the curve), so raising the attack level makes
+	    // the save EASIER to fail: an earlier draft used power * 20, which
+	    // pinned the roll to its floor and passed nearly everyone who failed
+	    // the first one -- a rubber stamp wearing the word "gate". Same level
+	    // means better saves protect you twice, which is what "failed by a
+	    // wide margin" was asking for.
 	    if (shock_power >= 8 && !ch.saves_spell(ch, shock_power * 10, "lightning"))
 		.tmp.mob.shockDropWeapon(ch);
 	}
