@@ -250,10 +250,10 @@
 	armorCoef = .tmp.object.armorCoef(obj);
 	ac.value0 = 0; ac.value1 = 0; ac.value2 = 0; ac.value3 = 0;
 	if (obj.item_type & .tables.item_table.armor) {
-	    ac.value0 = obj.value0 * armorCoef;
-	    ac.value1 = obj.value1 * armorCoef;
-	    ac.value2 = obj.value2 * armorCoef;
-	    ac.value3 = obj.value3 * armorCoef;
+	    ac.value0 = obj.armorColumn(0) * armorCoef;
+	    ac.value1 = obj.armorColumn(1) * armorCoef;
+	    ac.value2 = obj.armorColumn(2) * armorCoef;
+	    ac.value3 = obj.armorColumn(3) * armorCoef;
 	} 
 	return ac;
     };
