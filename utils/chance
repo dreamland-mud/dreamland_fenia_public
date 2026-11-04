@@ -40,6 +40,15 @@
 	    msgUa = msgUa + "{1{CТи відчуваєш особливе заступництво " + ch.religion.nameUa.ruscase(2) + " -- удача на твоєму боці!{2";
 	}
 
+	// Fili's mark: a full purse is a lucky purse, +3%
+	if (.tmp.religion.hasMark(ch, false) && ch.religion.name == "fili") {
+	    if (msgRu != "") { msgRu = msgRu + "{/"; msgEn = msgEn + "{/"; msgUa = msgUa + "{/"; }
+	    msgRu = msgRu + "{1{YМонеты Фили звенят на удачу!{2";
+	    msgEn = msgEn + "{1{YFili's coins jingle for luck!{2";
+	    msgUa = msgUa + "{1{YМонети Філі дзвенять на удачу!{2";
+	    success = success + 3;
+	}
+
 	// TO-DO: Add karma and global enchantments here
 
 	success = .urange(1, success, 99); // there's always a chance!
