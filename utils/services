@@ -324,7 +324,7 @@
 	
 	if (service.target == "string") {
 	    if (target == "") {
-		mob.say(._("На что именно ты хочешь использовать услугу {1{G%N2?{2 Укажи цель."), service.nameRus);
+		mob.say(._("На что именно ты хочешь использовать услугу {1{G%s?{2 Укажи цель."), .tmp.mob.serviceNameMM(service, 2));
 		service.no_target = true;
 		return service;		        
 	    }
