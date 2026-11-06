@@ -624,8 +624,16 @@
 		 ch.hasOccupation("repairman") || ch.hasOccupation("quest_trader") ||
 		 ch.hasOccupation("quest_master") || ch.hasOccupation("healer") ||
 		 ch.hasOccupation("blacksmith") || ch.hasOccupation("trainer") ||
-		 ch.hasOccupation("clanguard") || ch.hasOccupation("adept") ||
+		 ch.hasOccupation("clanguard") || .tmp.mob.isReligionAdept(ch) ||
 		 .tmp.mob.isServicer(ch)));
+    };
+
+    // A mob that admits players to a religion. The engine's "adept" occupation
+    // fires for any mob with a religion set, which is mostly flavour clerics.
+    .tmp.mob.isReligionAdept = function(ch) {
+	return (ch.is_npc() &&
+		(ch.pIndexData.behaviors.has("cult adept") ||
+		 ch.pIndexData.behaviors.has("templeperson")));
     };
     
     // Check if mob has new service behaviors
