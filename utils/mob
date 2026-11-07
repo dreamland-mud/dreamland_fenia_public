@@ -506,14 +506,10 @@
 	return true;
     };
     
-    // Check if char has weapon.
-    // If yes, use weapon.attack_damage, otherwise ch.attack_damage
-    // Weaponless player always returns "bash" -- TO-DO: change for claws etc.
+    // Damage type name of the primary swing, as the engine hits with it:
+    // the wielded weapon's, or the char's own when a mob's bare hands hit harder.
     .tmp.mob.getAttackDamage = function(ch) {
-	var weapons; weapons = .List();
-	weapons = .tmp.mob.getWeapons(ch);
-	if (weapons.size() == 0) return ch.attack_damage;
-	else return weapons.front().attack_damage;
+	return ch.blow_damage;
     };
     
     .tmp.mob.getWeapons = function(ch) {
