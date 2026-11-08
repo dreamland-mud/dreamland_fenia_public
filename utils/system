@@ -170,25 +170,26 @@
     smthCases[5] = "чем-то";
     smthCases[6] = "чём-то";
     
-    // Add this to room affect's onDescr
-    raffectDescr = function(af, msg) {
+    // Add this to room affect's onDescr: appends the time left to msg, a line
+    // already rendered in ch's language.
+    raffectDescr = function(ch, af, msg) {
 	if (af.duration >= 0)
-	    msg = msg + " {D[{yеще " + .fmt("{m%1$d{y час%1$I|а|ов", af.duration) + "{D]{2.{/"; 
-	else msg = msg + " перманентно.{/";
-	return msg;
+	    return msg + " " + .fmtLang(ch.displayLang, ._("{D[{yеще {m%1$d{y час%1$I|а|ов{D]{2.{/"), af.duration);
+	return msg + " " + .fmtLang(ch.displayLang, ._("перманентно.{/"));
     };
 	
     recolorDescr = function(descr, main_color, accents, accent_chance) {
-	var i, txt; txt = descr.stripTags();
+	var i, c, txt; txt = descr.stripTags();
 	var new_descr; new_descr = "";
 	
 	for (i = 0; i < txt.size(); i=i+1) {
-	    if (txt.at(i).isCyrillic()) {
+	    c = txt.at(i);
+	    if (c.toUpper() != c.toLower()) {
 		if (.chance(accent_chance))
 		    new_descr = new_descr + .fmt("{%s", accents.split(",").random());
 		else new_descr = new_descr + .fmt("{%s", main_color);
 	    }
-	    new_descr = new_descr + txt.at(i);
+	    new_descr = new_descr + c;
 	}
 	return new_descr.format(80) + "{x";	    
     };
