@@ -754,13 +754,25 @@
     // ambient heat. It is NOT forwarded to applyHeat: passing a source there
     // means "deliberately heating my own stuff" and jumps the chance to ~90%.
     .tmp.room.effectFire = function(room, source_ch, power) {
+	.tmp.room.effectFireCapped(room, source_ch, power, 0);
+    };
+
+    // effectFire with the floor pass capped at about cap random items per call
+    // (0 = every item). applyHeat costs ~2 ms an item, so a recurring caller
+    // (a permanently burning room) on a pile of hundreds of items stalls the
+    // whole pulse; the cap keeps its cost flat, and each item still gets
+    // heated on average once every n / cap calls.
+    .tmp.room.effectFireCapped = function(room, source_ch, power, cap) {
 	if (room == null) return;
 	power = .urange(0, power + .tmp.room.elementMod(room, "fire"), 10);
 	if (power == 0) return;
 
-	for (obj in room.items) {
+	var items; items = room.items;
+	var n; n = items.size();
+	for (obj in items) {
 	    if (!.tmp.object.valid(obj)) continue;
 	    if (obj.in_obj != null) continue; // ignore items inside containers
+	    if (cap > 0 && n > cap && .number_range(1, n) > cap) continue;
 	    .tmp.object.applyHeat(obj, null, null, power, false);
 	}
 
