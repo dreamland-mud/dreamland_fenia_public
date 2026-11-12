@@ -49,6 +49,11 @@
 	    success = success + 3;
 	}
 
+	// Tipsy: a little liquid luck (dreamland_fenia utils/drugs: alcohol).
+	// Drunker than that, it's gone.
+	if (!ch.is_npc() && .tmp.drug != null && .tmp.drug.luck != null)
+	    success = success + .tmp.drug.luck(ch);
+
 	// TO-DO: Add karma and global enchantments here
 
 	success = .urange(1, success, 99); // there's always a chance!
