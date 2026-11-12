@@ -180,6 +180,14 @@
 		 (!ch.is_npc() && (ch.act & .tables.plr_flags.vampire)) );
     };
 
+    // A vampire by class: a PC with the vampire skill fully learned (the
+    // initiation), as C++ DefaultDesire::isVampire counts it. Not the current
+    // form: that is the plr_flags.vampire bit. Immortals carry every skill at
+    // 100, so callers that must skip them check is_immortal themselves.
+    .tmp.mob.isTrueVampire = function(ch) {
+	return !ch.is_npc() && .Skill("vampire").learned(ch) >= 100;
+    };
+
     // True for an NPC of tier 1..maxTier (1 legend, 2 boss, 3 champion, 5 elite,
     // 7 normal). Strong tiers resist control and instant death: charm and summon
     // stop at champion (3), instakills and sleep at boss (2), vorpal at legend (1).
