@@ -306,7 +306,6 @@
 	    stats.sprouts = 0;
 	    stats.healthy_trees = stats.healthy_trees + 100;
 	    .wiznet(.fmt("[{GFOREST{x] [%d]: Young sprout grows into a healthy tree, yay!", room.vnum));
-	    try { .tmp.achievements.unlockRoom(room, "the_day_the_tree_grew"); } catch (e);
 	}
 
 	if (stats.damaged_tree >= 100) {
@@ -321,6 +320,7 @@
 	    return true;
 	}
 
+	stats.forest_total = stats.healthy_trees + stats.damaged_tree;
 	.tmp.room.updateForest(room, level, stats);
 	return false;
     };
