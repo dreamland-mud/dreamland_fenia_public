@@ -297,6 +297,34 @@
 	return true;
     };
 
+    // Settle a forest after its stats changed: a sprout at 100 becomes a tree,
+    // a damaged tree at 100 heals into a whole one, and 500 healthy trees end
+    // the deforestation. Otherwise the stats are saved. True when restored.
+    // Shared by the deforestation tick and druid cultivate.
+    .tmp.room.settleForest = function(room, level, stats) {
+	if (stats.sprouts >= 100) {
+	    stats.sprouts = 0;
+	    stats.healthy_trees = stats.healthy_trees + 100;
+	    .wiznet(.fmt("[{GFOREST{x] [%d]: Young sprout grows into a healthy tree, yay!", room.vnum));
+	}
+
+	if (stats.damaged_tree >= 100) {
+	    stats.damaged_tree = 0;
+	    stats.healthy_trees = stats.healthy_trees + 100;
+	    .wiznet(.fmt("[{GFOREST{x] [%d]: Damaged tree finally heals.", room.vnum));
+	}
+
+	if (stats.healthy_trees >= 500) {
+	    room.affectStrip("deforestation", true);
+	    .wiznet(.fmt("[{GFOREST{x] [%d]: Forest has been {Gfully restored{x.", room.vnum));
+	    return true;
+	}
+
+	stats.forest_total = stats.healthy_trees + stats.damaged_tree;
+	.tmp.room.updateForest(room, level, stats);
+	return false;
+    };
+
     ////////////////////////////////////////////////////////////////////////
     ////////////////////////  VARIOUS HELPERS  /////////////////////////////
     ////////////////////////////////////////////////////////////////////////
