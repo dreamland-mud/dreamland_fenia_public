@@ -227,7 +227,7 @@
 	    if (s.price_gold < 0)
 		prices.push_back(deal);
 	    else if (s.price_gold > 0) {
-		price_gold = .tmp.currency.adjustPrice(client, mob, s.price_gold);
+		price_gold = .tmp.currency.adjustCoin(client, mob, s.price_gold);
 		prices.push_back(.fmt("{Y%d{x " + coin, price_gold));
 	    }
 	    if (s.name == "advice")
@@ -386,14 +386,14 @@
 		service.price_silver = service.price_silver + client.level*10*100;
 
 	    // Adjust prices in silver vs. race, clan etc.
-	    service.price_silver = .tmp.currency.adjustPrice(
+	    service.price_silver = .tmp.currency.adjustCoin(
 		client, mob, service.price_silver);
 		    
 	    // Record time: auto-cancel confirmations after 5mins
 	    service.timestamp = .current_time;            
 	}
 	// Adjust prices in gold vs. race, clan etc.
-	else service.price_gold = .tmp.currency.adjustPrice(
+	else service.price_gold = .tmp.currency.adjustCoin(
 	    client, mob, service.price_gold);
 
 	service.price_qp = .tmp.currency.adjustPrice(client, mob, service.price_qp);
@@ -426,6 +426,11 @@
 	}
 
 	var svcname; if (lang == 0) svcname = service.name; else if (lang == 2) svcname = service.nameUkr; else svcname = service.nameRus;
+
+	// Law-abidance Outlaw or lower: no services in a hometown (private
+	// dreamland_fenia utils/law; the master answers for a charmed pet).
+	if (.tmp.law != null && .tmp.law.outlaw(viewer) && .tmp.law.inTown(mob.in_room))
+	    return viewer.print(._("Я не оказываю услуг тем, кто вне закона."));
 
 	// NPCs are eligible only for healer services
 	if (client.is_npc() && !service.npc_ok)
