@@ -930,6 +930,13 @@
 
 	if (ch.isAffected("chill touch") && .chance(50 + fire_power))
 	    ch.affectStrip("chill touch", true); // dispel frostbite
+
+	// Fire burns the blight rot out of the wounds, every time.
+	if (ch.isAffected("blight")) {
+	    ch.act(._("Пламя выжигает плесень из твоих ран."));
+	    ch.recho(._("Пламя выжигает плесень из ран %1$C2."), ch);
+	    ch.affectStrip("blight", false);
+	}
 	    
 	// Heat makes Jack thirsty. Two traps live on this one line.
 	// The setter GAINS what it is given (desire->gain), it does not assign,
