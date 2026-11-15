@@ -45,6 +45,16 @@
 	return amount;
     };
     
+    // adjustPrice for a price in silver or gold (never qp), plus the
+    // law-abidance band discount in hometowns (private dreamland_fenia
+    // utils/law), never down to 0.
+    .tmp.currency.adjustCoin = function(ch, servicer, amount) {
+	amount = .tmp.currency.adjustPrice(ch, servicer, amount);
+	if (.tmp.law == null || .tmp.law.pricePct == null)
+	    return amount;
+	return .tmp.law.applyPct(amount, .tmp.law.pricePct(ch, servicer.in_room, "service"));
+    };
+
     // Receive an item as a reward
     .tmp.currency.gainItem = function(ch, vnum, verbose) {
 	var obj; obj = .get_obj_index(vnum).create().obj_to_char(ch);
