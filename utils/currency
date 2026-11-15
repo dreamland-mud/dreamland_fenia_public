@@ -49,14 +49,10 @@
     // law-abidance band discount in hometowns (private dreamland_fenia
     // utils/law), never down to 0.
     .tmp.currency.adjustCoin = function(ch, servicer, amount) {
-	var pct;
 	amount = .tmp.currency.adjustPrice(ch, servicer, amount);
-	if (.tmp.law == null || amount <= 0)
+	if (.tmp.law == null || .tmp.law.pricePct == null)
 	    return amount;
-	pct = .tmp.law.pricePct(ch, servicer.in_room, "service");
-	if (pct == 100)
-	    return amount;
-	return .max(1, amount - amount * (100 - pct) / 100);
+	return .tmp.law.applyPct(amount, .tmp.law.pricePct(ch, servicer.in_room, "service"));
     };
 
     // Receive an item as a reward

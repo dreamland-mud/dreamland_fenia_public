@@ -20,7 +20,7 @@
     // IF NO ARGUMENT: visualize services for all available servicers
     // |--- getServices: behaviors/services --> .Array with .Maps
     // |--- listServices: visualize with adjusted prices
-    //    |--- .tmp.currency.adjustPrice: shows different prices for druids etc.
+    //    |--- .tmp.currency.adjustCoin: shows different prices for druids, law bands etc.
     // IF ARGUMENT: filter the list, find specific servicer, return service map
     // (2) locateService: return service .Map or null, visualize servicer's errors
     // |--- match argument with each service in each servicer's getServices
@@ -30,7 +30,7 @@
     //    |--- check if service can be rendered to NPCs (npc_ok)
     //    |--- IF SPELL: check for mob mana, battlerager client, .Spell(service.spell).checkActors
     //    |--- .tmp.currency.canAfford for client (or client.master, if npc_ok)
-    // |--- estimateService: dynamic object price + .tmp.currency.adjustPrice
+    // |--- estimateService: dynamic object price + .tmp.currency.adjustCoin
     // (3) doService: final checks, service process, payment, resource spending
     // |--- request verbal confirmation for services with dynamic prices
     // |--- IF SPELL: cast spell, spend mana
@@ -429,7 +429,8 @@
 
 	// Law-abidance Outlaw or lower: no services in a hometown (private
 	// dreamland_fenia utils/law; the master answers for a charmed pet).
-	if (.tmp.law != null && .tmp.law.outlaw(viewer) && .tmp.law.inTown(mob.in_room))
+	if (.tmp.law != null && .tmp.law.outlaw != null
+		&& .tmp.law.inTown(mob.in_room) && .tmp.law.outlaw(viewer))
 	    return viewer.print(._("Я не оказываю услуг тем, кто вне закона."));
 
 	// NPCs are eligible only for healer services
