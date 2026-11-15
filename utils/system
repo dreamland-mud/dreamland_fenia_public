@@ -53,6 +53,18 @@
      * returns: null if num is not numerical
      *          numerical representation of num - otherwise
      */
+    // block[key] from a config Map (.config(...) or a nested block), or
+    // dflt when the block is null or the key is missing.
+    cfgNum = function(block, key, dflt) {
+	var v;
+	if (block == null)
+	    return dflt;
+	v = block[key + ""];
+	if (v == null)
+	    return dflt;
+	return v;
+    };
+
     toNumber = function(num) {
 	try {
 	    var n;
