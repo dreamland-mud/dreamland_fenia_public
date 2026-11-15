@@ -933,8 +933,8 @@
 
 	// Fire burns the blight rot out of the wounds, every time.
 	if (ch.isAffected("blight")) {
-	    ch.act(._("Пламя выжигает гниль из твоих ран."));
-	    ch.recho(._("Пламя выжигает гниль из ран %1$C2."), ch);
+	    ch.act(._("Пламя выжигает плесень из твоих ран."));
+	    ch.recho(._("Пламя выжигает плесень из ран %1$C2."), ch);
 	    ch.affectStrip("blight", false);
 	}
 	    
