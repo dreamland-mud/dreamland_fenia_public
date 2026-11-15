@@ -714,6 +714,16 @@
 		&& !(ch.master.fighting.off_flags & .tables.off_flags.area_attack));
     };
 
+    // A follower's onFight: with chance percent it tries to rescue its
+    // master (the rescue command, with its own skill roll), when
+    // canRescueMaster allows. True if it tried.
+    .tmp.mob.autoRescue = function(mob, chance) {
+	if (!.tmp.mob.canRescueMaster(mob) || !.chance(chance))
+	    return false;
+	mob.interpret_raw("rescue", mob.master.name);
+	return true;
+    };
+
     .tmp.mob.get_obj_behavior = function(mob, bhv) {
 	for (i in mob.inventory) {
 	    if (i.in_obj != null) continue;
