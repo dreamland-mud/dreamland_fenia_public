@@ -1140,7 +1140,16 @@
     // Shock power mirrors fire_power: 1 static spark, 2 shocking weapon,
     // 4 shocking grasp, 8 lightning bolt, 10 blue dragon breath.
     .tmp.mob.effectShock = function(ch, shock_power, affect_items, apply_damage) {
+	.tmp.mob.effectShockBy(ch, null, shock_power, affect_items, apply_damage);
+    };
+
+    // Same as effectShock, but attacker (may be null) is stamped as the source
+    // of every item the discharge leaves red-hot, so the burn ticks that follow
+    // are charged to the attacker (kill credit, quests) instead of to ch itself.
+    .tmp.mob.effectShockBy = function(ch, attacker, shock_power, affect_items, apply_damage) {
 	if (!.tmp.mob.valid(ch)) return;
+	var by; by = attacker;
+	if (by == ch) by = null; // your own discharge is no attack on yourself
 	// Water conducts, so a discharge into a soaked victim hits far harder.
 	// Shock is the one element whose contact clamp reaches +2 rather than
 	// +1: a wet victim is not a bystander to the circuit, they ARE it.
@@ -1157,7 +1166,7 @@
 	    if (obj.in_obj != null) continue; // ignore items inside containers
 	    // Chance to hit anything depends on shock_power
 	    if (.tmp.chance(to_save, ch)) break;
-	    if (!.tmp.object.applyShock(obj, null, shock_power, false))
+	    if (!.tmp.object.applyShock(obj, by, shock_power, false))
 		continue; // didn't affect item? let's try another one
 
 	    if (!.tmp.mob.valid(ch)) return; // double-check if ch is still alive
