@@ -663,14 +663,16 @@
     // determine whether any ch can rescue victim in battle
     .tmp.mob.canRescue = function(ch, victim, verbose) {
 	var msg; msg = "";
-	var enemy; enemy = victim.fighting;
+	var enemy; enemy = .tmp.mob.rescueEnemy(victim);
 	
 	if (ch.fighting == null)
 	    msg = ch.print(._("Но ты сейчас не сражаешься!"));
 	else if (victim == null || !ch.can_see_mob(victim))
 	    msg = ch.print(._("Ты не видишь, кого спасать."));
-	else if (enemy == null)
+	else if (victim.fighting == null)
 	    msg = ch.print(._("Но %1$C1 сейчас не сража%1$nется|ются!"), victim);
+	else if (enemy == null)
+	    msg = ch.print(._("Сейчас никто не бьет %1$C4 -- спасать не от кого."), victim);
 	else if (enemy == ch)
 	    msg = ch.print(._("Перед тем, как спасать %1$C4, наверное стоит перестать %1$P2 мутузить."), victim);
 	else if (ch == victim)
@@ -705,13 +707,7 @@
 	return (.tmp.mob.masterHere(ch)
 		&& ch.fighting != null && ch.master.fighting != null
 		&& ch.fighting != ch.master
-		&& .tmp.mob.valid(ch.master.fighting)
-		&& ch.master.in_room == ch.master.fighting.in_room
-		&& ch.master.fighting.fighting == ch.master
-		&& ch.can_see_mob(ch.master.fighting)
-		&& !ch.is_safe(ch.master.fighting)
-		&& ch.master.fighting.is_npc() // don't auto-save vs. PC/PK
-		&& !(ch.master.fighting.off_flags & .tables.off_flags.area_attack));
+		&& .tmp.mob.canRescueFrom(ch, .tmp.mob.rescueEnemy(ch.master)));
     };
 
     // A follower's onFight: with chance percent it tries to rescue its
@@ -1534,5 +1530,31 @@
 	if (.tmp.chance(20, ch)) return false;
 
 	return .SkillCommand("disarm").knockWeapon(null, ch, weapon);
+    };
+
+    // Who a rescue pulls off victim: the one victim fights, if it fights back,
+    // else anyone else in the room hitting victim; null when nobody is. Keyed
+    // on who hits the victim, so a tank can peel a second attacker off too.
+    .tmp.mob.rescueEnemy = function(victim) {
+	if (victim == null || victim.in_room == null) return null;
+	var e; e = victim.fighting;
+	if (e != null && !e.dead && e.fighting == victim) return e;
+	var found; found = null;
+	for (x in victim.in_room.ppl) {
+	    if (found == null && x != victim && !x.dead && x.fighting == victim)
+		found = x;
+	}
+	return found;
+    };
+
+    // canRescueMaster's checks on the enemy it would pull off the master.
+    .tmp.mob.canRescueFrom = function(ch, enemy) {
+	return (enemy != null && enemy != ch
+		&& .tmp.mob.valid(enemy)
+		&& enemy.in_room == ch.master.in_room
+		&& ch.can_see_mob(enemy)
+		&& !ch.is_safe(enemy)
+		&& enemy.is_npc() // don't auto-save vs. PC/PK
+		&& (enemy.off_flags & .tables.off_flags.area_attack) == 0);
     };
 })
