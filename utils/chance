@@ -88,6 +88,10 @@
 	if (rel.name == "raven queen" && .season == "winter")
 	    success = success * 2;
 
+	// Atum-Ra mark works more often while the sun is up
+	if (rel.name == "atum-ra" && .sunlight != 0)
+	    success = success * 3 / 2;
+
 	if (.chance(success)) {
 	    if (msgRu != "" && .chance(5)) ch.act(.mm(msgEn, msgRu, msgUa));
 	    return true;
