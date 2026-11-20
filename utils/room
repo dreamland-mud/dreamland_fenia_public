@@ -357,17 +357,20 @@
 	var msg; msg = "на землю";
 	if (room != null) {
 		var sect; sect = room.sector_type;
-		// the intro galleon reads as city-sector, but it's a wooden ship --
-		// a dropped or landed missile ends up on its deck, not "on the pavement"
-		if (room.area != null && room.area.filename == "galeon.are")
-			msg = "на палубу";
-		else if (room.isWater())
+		// room.terrain carries the engine's per-area surface overrides (ships
+		// are city rooms with a deck). Its stock city/inside surface is the
+		// floor, which reads wrong outdoors, so only the floor gets street flavour.
+		var fall; fall = "на пол";
+		var t; t = room.terrain;
+		if (t != null)
+			fall = t.fall;
+		if (room.isWater())
 			msg = "в воду";
 		else if (sect == .tables.sector_table.city) {
-			if (!room.isOutside()) msg = "на пол";
+			if (fall != "на пол" || !room.isOutside()) msg = fall;
 			else msg = .tmp.room.dropPick(room, .List().add("на дорогу", "на мостовую", "на брусчатку"));
 		}
-		else if (sect == .tables.sector_table.inside) msg = "на пол";
+		else if (sect == .tables.sector_table.inside) msg = fall;
 		else if (sect == .tables.sector_table.hills)
 			msg = .tmp.room.dropPick(room, .List().add("в траву", "на склон холма", "на поросшую травой землю"));
 		else if (sect == .tables.sector_table.field)
