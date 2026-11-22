@@ -828,9 +828,9 @@
 	if (.tmp.aging != null && .tmp.aging.grumble != null) {
 	    try {
 		if (service.price_silver != null && service.price_silver > 0)
-		    .tmp.aging.grumble(client, mob, service.price_silver);
+		    .tmp.aging.grumble(client, mob, service.price_silver, "service");
 		else if (service.price_gold > 0)
-		    .tmp.aging.grumble(client, mob, service.price_gold);
+		    .tmp.aging.grumble(client, mob, service.price_gold, "service");
 	    } catch (e);
 	}
 	    
