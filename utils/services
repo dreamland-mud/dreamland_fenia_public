@@ -822,6 +822,17 @@
 	}
 	if (service.price_qp > 0)
 	    .tmp.currency.payQP(client, service.price_qp, true);
+
+	// Now and then an elder grumbles the coin price down (private
+	// dreamland_fenia utils/aging; the discount itself is in adjustCoin).
+	if (.tmp.aging != null && .tmp.aging.grumble != null) {
+	    try {
+		if (service.price_silver != null && service.price_silver > 0)
+		    .tmp.aging.grumble(client, mob, service.price_silver);
+		else if (service.price_gold > 0)
+		    .tmp.aging.grumble(client, mob, service.price_gold);
+	    } catch (e);
+	}
 	    
 	return true;
     };
