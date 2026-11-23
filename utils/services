@@ -25,7 +25,7 @@
     // (2) locateService: return service .Map or null, visualize servicer's errors
     // |--- match argument with each service in each servicer's getServices
     // |--- if service target is object
-    //     |--- find object, check can_see, zero cost, nodrop
+    //     |--- find object (servicerFindObj), zero cost, nodrop
     // |--- canPerformService: various last minute checks
     //    |--- check if service can be rendered to NPCs (npc_ok)
     //    |--- IF SPELL: check for mob mana, battlerager client, .Spell(service.spell).checkActors
@@ -132,6 +132,21 @@
 	if (mob.pIndexData.behaviors.has("blacksmith"))
 	    return t == .tables.item_table.armor || t == .tables.item_table.weapon;
 	return false;
+    };
+
+    // A servicer works on what either of them can see: the client points it out,
+    // or the servicer spots it itself (invisible items, a blind client).
+    .tmp.mob.servicerSees = function(mob, client, obj) {
+	return client.can_see_obj(obj) || mob.can_see_obj(obj);
+    };
+
+    // The client's item called name, as servicerSees: looked up through the
+    // client's eyes first, then the servicer's.
+    .tmp.mob.servicerFindObj = function(mob, client, name) {
+	var obj; obj = client.get_obj_carry(name, client);
+	if (obj == null)
+	    obj = client.get_obj_carry(name, mob);
+	return obj;
     };
 
     // Compose a list of all services a mob can perform
@@ -288,8 +303,7 @@
 	    if (service.name == "repair" && .arg_is_strict(target, "all")) {
 		var repair_list; repair_list = .List();
 		for (item in client.equipment) {
-		    // Make sure servicer can see an item
-		    if (!mob.can_see_obj(item)) continue;
+		    if (!.tmp.mob.servicerSees(mob, client, item)) continue;
 		    service.object = item; // use this as a temporary parameter
 		    // Don't estimate services yet, just check for conditions
 		    if (.tmp.mob.canPerformService(mob, client, service) != "")
@@ -302,7 +316,7 @@
 		service.object = null; // clear, so it won't trigger stuff later
 		return service;
 	    }
-	    // Locate the object for the service and check if servicer can see it.
+	    // Locate the object for the service (servicerFindObj).
 	    // In case of errors pass on service.no_target, visualize in core command
 	    else { 
 		if (target == "") {
@@ -310,7 +324,7 @@
 		    service.no_target = true;
 		    return service;		        
 		}
-		var object; object = client.get_obj_carry(target, mob);
+		var object; object = .tmp.mob.servicerFindObj(mob, client, target);
 		if (object == null) {
 		    mob.say(._("Я не вижу у тебя предмета под названием {1{G%s.{x{2"), target);
 		    service.no_target = true;
@@ -337,9 +351,9 @@
 	    service.argument = target;
 	}
 
-	// Player can bring their own horseshoes: check if blacksmith can see them
+	// Player can bring their own horseshoes (servicerFindObj).
 	if (service.name == "horseshoe" && target != "") {
-	    var horseshoe; horseshoe = client.get_obj_carry(target, mob);
+	    var horseshoe; horseshoe = .tmp.mob.servicerFindObj(mob, client, target);
 	    if (horseshoe == null) {
 		mob.say(._("Я не вижу у тебя подков под названием {1{G%s.{x{2"), target);
 		service.no_target = true;
