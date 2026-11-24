@@ -190,20 +190,109 @@
 	return msg + " " + .fmtLang(ch.displayLang, ._("перманентно.{/"));
     };
 	
+    // Repaints every letter of a room description: main_color, or one of the
+    // comma-separated accents with accent_chance percent. Only the colour
+    // codes go. Everything else stays as the engine sent it: line breaks
+    // ({/ and the text's own), language/sex/time tags, links ({hc exit
+    // words, {hh help) and visibility spans ({I...{Ix: the "(keyword)"
+    // markers, whose web half carries the read/look click). A link or a
+    // marker keeps the colour written right before it, else main_color.
+    // Applying it twice gives the same text with new accents.
     recolorDescr = function(descr, main_color, accents, accent_chance) {
-	var i, c, txt; txt = descr.stripTags();
-	var new_descr; new_descr = "";
-	
-	for (i = 0; i < txt.size(); i=i+1) {
-	    c = txt.at(i);
-	    if (c.toUpper() != c.toLower()) {
-		if (.chance(accent_chance))
-		    new_descr = new_descr + .fmt("{%s", accents.split(",").random());
-		else new_descr = new_descr + .fmt("{%s", main_color);
+	var i, k, c, n, t, len, end, out, pend, main, palette, colours, argTags, invisOpen, linkOpen, spanOpen;
+	palette = accents.split(",");
+	colours = "b,c,g,m,r,w,y,B,C,G,M,R,W,Y,D,1,2,*,+".split(",");
+	argTags = "l,n,s,A,S,T,F".split(",");
+	invisOpen = "i,s,w,S,W".split(",");
+	linkOpen = "c,l,h,g,s".split(",");
+	main = "{" + main_color;
+	len = descr.size();
+	out = "";
+	pend = "";
+
+	for (i = 0; i < len; i = i + 1) {
+	    c = descr.at(i);
+	    // A lone "{" at the very end would turn the closing {x into "{{x".
+	    if (c == "{" && i + 1 >= len)
+		break;
+	    if (c != "{") {
+		if (c.toUpper() != c.toLower()) {
+		    if (.chance(accent_chance))
+			out = out + "{" + palette.random();
+		    else
+			out = out + main;
+		}
+		out = out + c;
+		pend = "";
+		continue;
 	    }
-	    new_descr = new_descr + c;
+
+	    i = i + 1;
+	    n = descr.at(i);
+
+	    // A colour code: dropped, remembered for a link or marker right after.
+	    if (colours.has(n)) {
+		if (n != "1" && n != "2" && n != "*" && n != "+")
+		    pend = "{" + n;
+		continue;
+	    }
+
+	    // {l {n {s {A {S {T {F: the tag letter after them is not text.
+	    if (argTags.has(n) && i + 1 < len) {
+		out = out + "{" + n + descr.at(i + 1);
+		i = i + 1;
+		continue;
+	    }
+
+	    // {I or {h: copied whole up to its closing {Ix / {hx or a total
+	    // reset {x. A stray closer is copied as it is.
+	    if ((n == "I" || n == "h") && i + 1 < len) {
+		t = descr.at(i + 1);
+		if (n == "I")
+		    spanOpen = invisOpen.has(t);
+		else
+		    spanOpen = linkOpen.has(t);
+		if (!spanOpen) {
+		    out = out + "{" + n + t;
+		    i = i + 1;
+		    continue;
+		}
+
+		end = len;
+		for (k = i + 2; k + 1 < len; k = k + 1) {
+		    if (descr.at(k) != "{")
+			continue;
+		    t = descr.at(k + 1);
+		    if (t == "x" || t == "X") {
+			end = k + 2;
+			break;
+		    }
+		    if (t == n && k + 2 < len) {
+			t = descr.at(k + 2);
+			if (t == "x" || t == "X") {
+			    end = k + 3;
+			    break;
+			}
+		    }
+		    k = k + 1;
+		}
+
+		if (pend == "")
+		    out = out + main;
+		else
+		    out = out + pend;
+		out = out + descr.substr(i - 1, end - i + 1);
+		i = end - 1;
+		pend = "";
+		continue;
+	    }
+
+	    // Anything else ({/ {{ {x ...) as it is.
+	    out = out + "{" + n;
+	    if (n == "x" || n == "X")
+		pend = "";
 	}
-	return new_descr.format(80) + "{x";	    
+	return out + "{x";
     };
 
 })
