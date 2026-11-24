@@ -162,18 +162,25 @@
     
     // Hand back coins a mob was just paid in onBribe: give has already moved
     // them into its purse. A payer the mob sees in the room gets them by
-    // 'give', one command per coin kind. Otherwise (unseen payer, sleeping
-    // mob) the purse goes down and the coins land on the floor.
+    // 'give', one command per coin kind. Whatever give does not move (the
+    // payer cannot carry it), and everything for an unseen payer or a
+    // sleeping mob, comes out of the purse and lands on the floor.
     .tmp.mob.giveBack = function(mob, ch, gold, silver) {
+	var gold0, silver0;
 	if (gold <= 0 && silver <= 0)
 	    return;
 
 	if (.tmp.mob.awake(mob) && ch.in_room == mob.in_room && mob.can_see_mob(ch)) {
+	    gold0 = mob.gold;
+	    silver0 = mob.silver;
 	    if (gold > 0)
 		mob.interpret_raw("give", "" + gold + " gold " + ch.name);
 	    if (silver > 0)
 		mob.interpret_raw("give", "" + silver + " silver " + ch.name);
-	    return;
+	    gold = .max(0, gold - (gold0 - mob.gold));
+	    silver = .max(0, silver - (silver0 - mob.silver));
+	    if (gold <= 0 && silver <= 0)
+		return;
 	}
 
 	mob.gold = mob.gold - gold;
