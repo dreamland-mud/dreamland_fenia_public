@@ -160,6 +160,27 @@
 		     ch.form & .tables.form_flags.magical));
     };
     
+    // Hand back coins a mob was just paid in onBribe: give has already moved
+    // them into its purse. A payer the mob sees in the room gets them by
+    // 'give', one command per coin kind. Otherwise (unseen payer, sleeping
+    // mob) the purse goes down and the coins land on the floor.
+    .tmp.mob.giveBack = function(mob, ch, gold, silver) {
+	if (gold <= 0 && silver <= 0)
+	    return;
+
+	if (.tmp.mob.awake(mob) && ch.in_room == mob.in_room && mob.can_see_mob(ch)) {
+	    if (gold > 0)
+		mob.interpret_raw("give", "" + gold + " gold " + ch.name);
+	    if (silver > 0)
+		mob.interpret_raw("give", "" + silver + " silver " + ch.name);
+	    return;
+	}
+
+	mob.gold = mob.gold - gold;
+	mob.silver = mob.silver - silver;
+	.tmp.object.dropObj(mob, .create_money(gold, silver), true, mob.in_room);
+    };
+
     // TO-DO: add isDeaf helper -- is PC deaf flag, deafen, no ears, sleeping etc.
 
     // Determine whether a mob is capable of flying
