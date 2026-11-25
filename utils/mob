@@ -216,11 +216,22 @@
 	return !ch.is_npc() && .Skill("vampire").learned(ch) >= 100;
     };
 
-    // True for an NPC of tier 1..maxTier (1 legend, 2 boss, 3 champion, 5 elite,
-    // 7 normal). Strong tiers resist control and instant death: charm and summon
-    // stop at champion (3), instakills and sleep at boss (2), vorpal at legend (1).
+    // The tier an NPC fights at: the instance field fightTier when a spawn set
+    // one, else its tier. A spawn can fight like a boss while its tier, which
+    // also sets xp, gold and loot, stays low. 0 for players.
+    .tmp.mob.fightTier = function(ch) {
+	if (!ch.is_npc()) return 0;
+	if (ch.fightTier != null) return ch.fightTier;
+	return ch.tier;
+    };
+
+    // True for an NPC of fight tier 1..maxTier (1 legend, 2 boss, 3 champion,
+    // 5 elite, 7 normal). Strong tiers resist control and instant death: charm
+    // and summon stop at champion (3), instakills and sleep at boss (2), vorpal
+    // at legend (1).
     .tmp.mob.isStrongTier = function(ch, maxTier) {
-	return ch.is_npc() && ch.tier >= 1 && ch.tier <= maxTier;
+	var t; t = .tmp.mob.fightTier(ch);
+	return ch.is_npc() && t >= 1 && t <= maxTier;
     };
 
     // Debuffs (poison, plague, blindness) still land on strong mobs but wear
@@ -228,9 +239,10 @@
     // has to keep them up. Flat immunity would delete those roles from boss fights.
     .tmp.mob.tierDuration = function(ch, duration) {
 	if (!.tmp.mob.isStrongTier(ch, 5) || duration <= 0) return duration;
-	if (ch.tier == 1) duration = duration / 4;
-	else if (ch.tier == 2) duration = duration / 3;
-	else if (ch.tier == 3) duration = duration / 2;
+	var t; t = .tmp.mob.fightTier(ch);
+	if (t == 1) duration = duration / 4;
+	else if (t == 2) duration = duration / 3;
+	else if (t == 3) duration = duration / 2;
 	else duration = duration * 2 / 3;
 	return .max(1, duration);
     };
@@ -238,8 +250,9 @@
     // How deep a stacking debuff (poison, plague) may go on this target.
     .tmp.mob.tierStackCap = function(ch) {
 	if (!.tmp.mob.isStrongTier(ch, 3)) return 10;
-	if (ch.tier == 1) return 2;
-	if (ch.tier == 2) return 3;
+	var t; t = .tmp.mob.fightTier(ch);
+	if (t == 1) return 2;
+	if (t == 2) return 3;
 	return 5;
     };
 
